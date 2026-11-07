@@ -257,7 +257,7 @@ app.add_template_global(cover_url, "cover_url")
 def cover_img(cover_id, size="cover_small", cls="thumb", placeholder=True):
     url = cover_url(cover_id, size)
     if url:
-        return Markup(f'<img class="{cls}" src="{url}" alt="" loading="lazy">')
+        return Markup(f'<img class="{cls}" src="{url}" alt="" data-cover referrerpolicy="no-referrer" decoding="async">')
     if placeholder and igdb_configured():
         return Markup(f'<span class="{cls} empty"></span>')
     return Markup("")
@@ -1015,6 +1015,7 @@ form.inline{display:inline;margin:0}
 @media (max-width:480px){.cover-lg{width:120px}}
 .ac-list .lead{display:flex;gap:10px;align-items:center;min-width:0}
 .ac-list .thumb{width:28px;height:40px}
+img[data-cover].failed{visibility:hidden}
 .grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(150px,1fr));gap:16px}
 .tile{position:relative;display:block;aspect-ratio:264/374;border-radius:10px;overflow:hidden;background:var(--surface);color:var(--text);text-decoration:none;box-shadow:0 1px 3px rgba(0,0,0,.35);transition:transform .18s ease,box-shadow .18s ease}
 .tile img,.tile .noart{position:absolute;inset:0;width:100%;height:100%;object-fit:cover;transition:transform .25s ease}
@@ -1049,6 +1050,18 @@ BASE = """<!doctype html>
 <html lang="en"><head>
 <meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1">
 <title>{% block title %}Gametrackr{% endblock %}</title>
+<script>
+document.addEventListener("error",function(e){
+  var img=e.target;
+  if(!img||img.tagName!=="IMG"||!img.hasAttribute("data-cover"))return;
+  var n=+(img.getAttribute("data-tries")||0);
+  if(n>=2){img.classList.add("failed");return;}
+  img.setAttribute("data-tries",n+1);
+  var base=img.getAttribute("data-base");
+  if(!base){base=img.getAttribute("src").split("?")[0];img.setAttribute("data-base",base);}
+  setTimeout(function(){img.src=n===0?base:base+"?r="+(n+1);},800*(n+1));
+},true);
+</script>
 <style>""" + CSS + """</style></head><body>
 <header><div class="bar">
 <a class="logo" href="{{ url_for('home') }}">Game<span>trackr</span></a>
@@ -1093,7 +1106,7 @@ document.querySelectorAll("input[data-suggest]").forEach(function(input){
     items.forEach(function(game,i){
       var li=document.createElement("li"); if(i===active)li.className="active";
       var lead=document.createElement("span"); lead.className="lead";
-      if(game.cover_url){var img=document.createElement("img"); img.className="thumb"; img.alt=""; img.src=game.cover_url; lead.appendChild(img);}
+      if(game.cover_url){var img=document.createElement("img"); img.className="thumb"; img.alt=""; img.referrerPolicy="no-referrer"; img.setAttribute("data-cover",""); img.src=game.cover_url; lead.appendChild(img);}
       var t=document.createElement("span"); t.textContent=game.title+(game.year?" ("+game.year+")":""); lead.appendChild(t);
       li.appendChild(lead);
       if(game.n){var m=document.createElement("span"); m.className="meta"; m.textContent=game.avg.toFixed(1); li.appendChild(m);}
@@ -1125,9 +1138,9 @@ document.querySelectorAll("input[data-suggest]").forEach(function(input){
 });
 </script></body></html>"""
 
-TILES = """{% macro tile(href, title, cover_id, rating=None, tip=None) -%}
+TILES = """{% macro tile(href, title, cover_id, rating=None, tip=None, lazy=False) -%}
 <a class="tile" href="{{ href }}" title="{{ tip or title }}">
-{%- if cover_id %}<img src="{{ cover_url(cover_id, 'cover_big') }}" alt="" loading="lazy">{% else %}<span class="noart"></span>{% endif %}
+{%- if cover_id %}<img src="{{ cover_url(cover_id, 'cover_big') }}" alt="" data-cover referrerpolicy="no-referrer" decoding="async"{% if lazy %} loading="lazy"{% endif %}>{% else %}<span class="noart"></span>{% endif %}
 <span class="cap"><span class="name">{{ title }}</span><span class="badge {{ rating|tier }}">{{ rating|badge }}</span></span>
 </a>
 {%- endmacro %}"""
@@ -1208,10 +1221,10 @@ PROFILE = """{% extends "base.html" %}{% from "tiles.html" import tile %}{% bloc
 <h1>{{ person.username }}</h1>
 <p class="muted">{{ entries|length }} game{{ "" if entries|length == 1 else "s" }} rated
 {% if avg %}, average {{ avg|score }}{% endif %}. Member since {{ person.created_at|day }}.</p>
-{% if entries %}<div class="grid">{% for e in entries %}{{ tile(url_for('game', game_id=e.game_id), e.title, e.cover_id, e.rating) }}{% endfor %}</div>
+{% if entries %}<div class="grid">{% for e in entries %}{{ tile(url_for('game', game_id=e.game_id), e.title, e.cover_id, e.rating, lazy=loop.index > 24) }}{% endfor %}</div>
 {% else %}<p class="muted">No games yet.{% if user and user.id == person.id %} <a href="{{ url_for('add') }}">Add your first game.</a>{% endif %}</p>{% endif %}
 {% if library %}<h2>Unrated in your library</h2>
-<div class="grid">{% for l in library %}{{ tile(url_for('game', game_id=l.game_id), l.title, l.cover_id) }}{% endfor %}</div>{% endif %}
+<div class="grid">{% for l in library %}{{ tile(url_for('game', game_id=l.game_id), l.title, l.cover_id, lazy=loop.index > 24) }}{% endfor %}</div>{% endif %}
 {% endblock %}"""
 
 SETTINGS = """{% extends "base.html" %}{% block title %}Settings - Gametrackr{% endblock %}{% block body %}
@@ -1248,7 +1261,7 @@ ERROR = """{% extends "base.html" %}{% block body %}
 
 SEARCH = """{% extends "base.html" %}{% from "tiles.html" import tile %}{% block title %}{{ q or "Search" }} - Gametrackr{% endblock %}{% block body %}
 <h1>{% if q %}Results for &ldquo;{{ q }}&rdquo;{% else %}Search games{% endif %}</h1>
-{% if results %}<div class="grid">{% for r in results %}{{ tile(url_for('game', game_id=r.id) if r.id else url_for('game_from_igdb', igdb_id=r.igdb_id), r.title, r.cover_id, r.avg if r.n else None, r.title ~ (" (" ~ r.year ~ ")" if r.year else "")) }}{% endfor %}</div>
+{% if results %}<div class="grid">{% for r in results %}{{ tile(url_for('game', game_id=r.id) if r.id else url_for('game_from_igdb', igdb_id=r.igdb_id), r.title, r.cover_id, r.avg if r.n else None, r.title ~ (" (" ~ r.year ~ ")" if r.year else ""), lazy=loop.index > 24) }}{% endfor %}</div>
 {% elif q %}<p class="muted">No games match that search.</p>
 <p><a class="btn" href="{{ url_for('add', title=q) }}">Add &ldquo;{{ q }}&rdquo;</a></p>
 {% else %}<p class="muted">Type a game title in the search box.</p>{% endif %}
