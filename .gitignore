@@ -6,4 +6,5 @@ __pycache__/
 .secret_key
 gametrackr.db
 .DS_Store
+.env.example
 
