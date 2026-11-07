@@ -11,6 +11,7 @@ import re
 import secrets
 import sqlite3
 import time
+import unicodedata
 from collections import deque
 from datetime import datetime, timezone
 from urllib.error import HTTPError, URLError
@@ -68,7 +69,9 @@ CREATE TABLE IF NOT EXISTS games (
     title TEXT NOT NULL UNIQUE COLLATE NOCASE,
     igdb_id INTEGER,
     cover_id TEXT,
-    release_year INTEGER
+    release_year INTEGER,
+    norm_title TEXT,
+    igdb_checked INTEGER NOT NULL DEFAULT 0
 );
 CREATE TABLE IF NOT EXISTS entries (
     id INTEGER PRIMARY KEY AUTOINCREMENT,
@@ -112,10 +115,14 @@ def init_db():
             db.execute("ALTER TABLE users ADD COLUMN steam_id TEXT")
         db.execute("CREATE UNIQUE INDEX IF NOT EXISTS idx_users_steam ON users(steam_id)")
         gcols = [r[1] for r in db.execute("PRAGMA table_info(games)")]
-        for col, ddl in (("igdb_id", "INTEGER"), ("cover_id", "TEXT"), ("release_year", "INTEGER")):
+        for col, ddl in (("igdb_id", "INTEGER"), ("cover_id", "TEXT"), ("release_year", "INTEGER"),
+                         ("norm_title", "TEXT"), ("igdb_checked", "INTEGER NOT NULL DEFAULT 0")):
             if col not in gcols:  # upgrade databases created before IGDB support
                 db.execute(f"ALTER TABLE games ADD COLUMN {col} {ddl}")
         db.execute("CREATE UNIQUE INDEX IF NOT EXISTS idx_games_igdb ON games(igdb_id)")
+        db.execute("CREATE INDEX IF NOT EXISTS idx_games_norm ON games(norm_title)")
+        for gid, title in db.execute("SELECT id, title FROM games WHERE norm_title IS NULL").fetchall():
+            db.execute("UPDATE games SET norm_title = ? WHERE id = ?", (norm_title(title), gid))
 
 
 # ---------------------------------------------------------------- helpers
@@ -172,6 +179,30 @@ def day(value):
 
 # ---------------------------------------------------------------- routes
 
+def rating_tier(value):
+    """UR gray, 1-4.9 red/orange, 5-7.9 yellow, 8-9.9 green, 10.0 blue."""
+    if value is None:
+        return "ur"
+    v = float(f"{float(value):.1f}")
+    if v < 5:
+        return "low"
+    if v < 8:
+        return "mid"
+    if v < 10:
+        return "high"
+    return "max"
+
+
+@app.template_filter("tier")
+def tier_filter(value):
+    return rating_tier(value)
+
+
+@app.template_filter("badge")
+def badge_filter(value):
+    return "UR" if value is None else f"{float(value):.1f}"
+
+
 @app.route("/")
 def home():
     if g.user is None:
@@ -186,7 +217,7 @@ def home():
     top = db.execute(
         """SELECT g.id, g.title, g.cover_id, AVG(e.rating) AS avg, COUNT(*) AS n
            FROM games g JOIN entries e ON e.game_id = g.id
-           GROUP BY g.id ORDER BY avg DESC, n DESC LIMIT 10"""
+           GROUP BY g.id ORDER BY avg DESC, n DESC LIMIT 12"""
     ).fetchall()
     return render_template("home.html", recent=recent, top=top)
 
@@ -197,11 +228,17 @@ COVER_ID_RE = re.compile(r"^[A-Za-z0-9_-]{1,40}$")
 IGDB_TOKEN = {"value": None, "expires": 0.0}
 IGDB_CACHE = {}
 IGDB_CALLS = deque()
+IGDB_STATE = {"down_until": 0.0}
 IGDB_FIELDS = "fields name,first_release_date,cover.image_id;"
 
 
 class IgdbError(Exception):
     pass
+
+
+def igdb_mark_down(seconds=30):
+    """After a network failure, skip IGDB briefly so pages don't hang on timeouts."""
+    IGDB_STATE["down_until"] = time.time() + seconds
 
 
 def igdb_configured():
@@ -212,6 +249,9 @@ def cover_url(cover_id, size="cover_small"):
     if cover_id and COVER_ID_RE.match(cover_id):
         return f"https://images.igdb.com/igdb/image/upload/t_{size}/{cover_id}.jpg"
     return None
+
+
+app.add_template_global(cover_url, "cover_url")
 
 
 def cover_img(cover_id, size="cover_small", cls="thumb", placeholder=True):
@@ -233,11 +273,12 @@ def igdb_token():
         "grant_type": "client_credentials",
     }).encode()
     try:
-        with urlopen(Request("https://id.twitch.tv/oauth2/token", data=body), timeout=10) as resp:
+        with urlopen(Request("https://id.twitch.tv/oauth2/token", data=body), timeout=6) as resp:
             data = json.load(resp)
         IGDB_TOKEN["value"] = data["access_token"]
         IGDB_TOKEN["expires"] = now + float(data.get("expires_in", 3600))
     except (HTTPError, URLError, OSError, ValueError, KeyError):
+        igdb_mark_down()
         raise IgdbError("Couldn't authenticate with IGDB.")
     return IGDB_TOKEN["value"]
 
@@ -245,6 +286,8 @@ def igdb_token():
 def igdb_post(query):
     """Send an Apicalypse query to IGDB's /games endpoint (max 4 requests/second)."""
     now = time.time()
+    if now < IGDB_STATE["down_until"]:
+        raise IgdbError("IGDB is unavailable.")
     while IGDB_CALLS and now - IGDB_CALLS[0] > 1:
         IGDB_CALLS.popleft()
     if len(IGDB_CALLS) >= 4:
@@ -261,14 +304,17 @@ def igdb_post(query):
             },
         )
         try:
-            with urlopen(req, timeout=10) as resp:
+            with urlopen(req, timeout=6) as resp:
                 return json.load(resp)
         except HTTPError as exc:
             if exc.code == 401 and attempt == 1:
                 IGDB_TOKEN["value"] = None  # token expired or revoked: fetch a new one once
                 continue
+            if exc.code >= 500:
+                igdb_mark_down()
             raise IgdbError(f"IGDB error {exc.code}.")
         except (URLError, OSError, ValueError):
+            igdb_mark_down()
             raise IgdbError("Couldn't reach IGDB.")
 
 
@@ -313,32 +359,103 @@ def igdb_get(igdb_id):
     return parsed[0] if parsed else None
 
 
+def norm_title(title):
+    """Loose key so 'The Witcher® 3: Wild Hunt' matches 'The Witcher 3: Wild Hunt'."""
+    t = re.sub(r"[™®©]", "", title or "")
+    t = unicodedata.normalize("NFKD", t.lower())
+    t = "".join(ch for ch in t if not unicodedata.combining(ch))
+    t = re.sub(r"[^a-z0-9]+", " ", t.replace("&", " and ")).strip()
+    if t.startswith("the "):
+        t = t[4:]
+    return t or (title or "").strip().casefold()  # non-latin titles keep their own text
+
+
+def merge_games(db, src, dst):
+    """Fold a duplicate game row into another, keeping everyone's ratings and libraries."""
+    db.execute("UPDATE OR IGNORE entries SET game_id = ? WHERE game_id = ?", (dst, src))
+    db.execute("DELETE FROM entries WHERE game_id = ?", (src,))
+    db.execute("UPDATE OR IGNORE library SET game_id = ? WHERE game_id = ?", (dst, src))
+    db.execute("DELETE FROM library WHERE game_id = ?", (src,))
+    db.execute("DELETE FROM games WHERE id = ?", (src,))
+
+
+def absorb_duplicates(db, keeper_id, norm):
+    rows = db.execute(
+        "SELECT id FROM games WHERE norm_title = ? AND igdb_id IS NULL AND id != ?",
+        (norm, keeper_id),
+    ).fetchall()
+    for r in rows:
+        merge_games(db, r["id"], keeper_id)
+
+
 def ensure_game_from_igdb(db, ig):
-    """Return the local game id for an IGDB game, creating or linking a row."""
+    """Return the local game id for an IGDB game, linking or creating a row.
+
+    Plain games (typed in or imported from Steam) whose title matches loosely are
+    linked to the IGDB game and merged, so one game never appears twice.
+    """
+    norm = norm_title(ig["title"])
     row = db.execute("SELECT id FROM games WHERE igdb_id = ?", (ig["igdb_id"],)).fetchone()
     if row:
+        absorb_duplicates(db, row["id"], norm)
         return row["id"]
+    plain = db.execute(
+        """SELECT id FROM games WHERE norm_title = ? AND igdb_id IS NULL
+           ORDER BY (title = ? COLLATE NOCASE) DESC, id""",
+        (norm, ig["title"]),
+    ).fetchall()
+    if plain:
+        keeper = plain[0]["id"]
+        for other in plain[1:]:
+            merge_games(db, other["id"], keeper)
+        db.execute(
+            "UPDATE games SET igdb_id = ?, cover_id = ?, release_year = ?, norm_title = ? WHERE id = ?",
+            (ig["igdb_id"], ig["cover_id"], ig["year"], norm, keeper),
+        )
+        clash = db.execute(
+            "SELECT id FROM games WHERE title = ? AND id != ?", (ig["title"], keeper)
+        ).fetchone()
+        if clash is None:  # use IGDB's cleaner name, e.g. drop the (R) symbol
+            db.execute("UPDATE games SET title = ? WHERE id = ?", (ig["title"], keeper))
+        return keeper
     names = [ig["title"]]
     if ig["year"]:
         names.append(f"{ig['title']} ({ig['year']})")  # same title, different game
     names.append(f"{ig['title']} (IGDB {ig['igdb_id']})")
-    for i, name in enumerate(names):
-        existing = db.execute(
-            "SELECT id, igdb_id FROM games WHERE title = ?", (name,)
-        ).fetchone()
-        if existing is None:
+    for name in names:
+        if db.execute("SELECT 1 FROM games WHERE title = ?", (name,)).fetchone() is None:
             cur = db.execute(
-                "INSERT INTO games (title, igdb_id, cover_id, release_year) VALUES (?, ?, ?, ?)",
-                (name, ig["igdb_id"], ig["cover_id"], ig["year"]),
+                """INSERT INTO games (title, igdb_id, cover_id, release_year, norm_title)
+                   VALUES (?, ?, ?, ?, ?)""",
+                (name, ig["igdb_id"], ig["cover_id"], ig["year"], norm),
             )
             return cur.lastrowid
-        if existing["igdb_id"] is None and i == 0:  # a plain typed-in game: link it
-            db.execute(
-                "UPDATE games SET igdb_id = ?, cover_id = ?, release_year = ? WHERE id = ?",
-                (ig["igdb_id"], ig["cover_id"], ig["year"], existing["id"]),
-            )
-            return existing["id"]
     raise IgdbError("Couldn't save that game.")
+
+
+def enrich_game(db, game_id):
+    """Try to link a plain (typed or Steam-imported) game to IGDB for its cover art.
+
+    Returns the id of the surviving row, which differs if the game was merged.
+    """
+    row = db.execute(
+        "SELECT id, title, igdb_id, igdb_checked FROM games WHERE id = ?", (game_id,)
+    ).fetchone()
+    if row is None or row["igdb_id"] or row["igdb_checked"] or not igdb_configured():
+        return game_id
+    want = norm_title(row["title"])
+    try:
+        query = re.sub(r"[™®©]", "", row["title"]).strip() or row["title"]
+        for ig in igdb_search(query, 5):
+            if norm_title(ig["title"]) == want:
+                gid = ensure_game_from_igdb(db, ig)
+                db.commit()
+                return gid
+    except IgdbError:
+        return game_id  # try again on a later visit
+    db.execute("UPDATE games SET igdb_checked = 1 WHERE id = ?", (game_id,))
+    db.commit()
+    return game_id
 
 
 def search_results(q, local_limit, igdb_limit):
@@ -376,8 +493,8 @@ def search_results(q, local_limit, igdb_limit):
             "title": x["title"], "year": x["year"], "cover_id": x["cover_id"],
             "avg": (mine["avg"] or 0) if mine else 0, "n": mine["n"] if mine else 0,
         })
-    names = {x["title"].lower() for x in fresh}
-    local = [r for r in local if r["igdb_id"] or r["title"].lower() not in names]
+    names = {norm_title(x["title"]) for x in fresh}
+    local = [r for r in local if r["igdb_id"] or norm_title(r["title"]) not in names]
     return local + fresh
 
 
@@ -389,10 +506,13 @@ def find_games(q, limit):
                   AVG(e.rating) AS avg, COUNT(e.id) AS n
            FROM games g LEFT JOIN entries e ON e.game_id = g.id
            WHERE g.title LIKE ? ESCAPE '!'
+             AND (g.igdb_id IS NOT NULL
+                  OR g.id IN (SELECT game_id FROM entries)
+                  OR g.id IN (SELECT game_id FROM library WHERE user_id = ?))
            GROUP BY g.id
            ORDER BY (g.title LIKE ? ESCAPE '!') DESC, n DESC, g.title
            LIMIT ?""",
-        (f"%{esc}%", f"{esc}%", limit),
+        (f"%{esc}%", g.user["id"] if g.user else -1, f"{esc}%", limit),
     ).fetchall()
 
 
@@ -555,7 +675,7 @@ def add():
             flash(error)
         else:
             if gid is None:
-                db.execute("INSERT OR IGNORE INTO games (title) VALUES (?)", (title,))
+                db.execute("INSERT OR IGNORE INTO games (title, norm_title) VALUES (?, ?)", (title, norm_title(title)))
                 gid = db.execute(
                     "SELECT id FROM games WHERE title = ?", (title,)
                 ).fetchone()["id"]
@@ -577,6 +697,9 @@ def add():
 @app.route("/game/<int:game_id>")
 def game(game_id):
     db = get_db()
+    surviving = enrich_game(db, game_id)
+    if surviving != game_id:
+        return redirect(url_for("game", game_id=surviving))
     row = db.execute(
         """SELECT g.id, g.title, g.cover_id, g.release_year, AVG(e.rating) AS avg, COUNT(e.id) AS n
            FROM games g LEFT JOIN entries e ON e.game_id = g.id
@@ -591,7 +714,12 @@ def game(game_id):
            WHERE e.game_id = ? ORDER BY e.updated_at DESC""",
         (game_id,),
     ).fetchall()
-    return render_template("game.html", game=row, entries=entries)
+    mine = None
+    if g.user:
+        mine = db.execute(
+            "SELECT id FROM entries WHERE user_id = ? AND game_id = ?", (g.user["id"], game_id)
+        ).fetchone()
+    return render_template("game.html", game=row, entries=entries, mine=mine)
 
 
 @app.route("/u/<username>")
@@ -602,6 +730,20 @@ def profile(username):
     ).fetchone()
     if person is None:
         abort(404)
+    if igdb_configured() and g.user and g.user["id"] == person["id"]:
+        # Fetch cover art for a few unmatched games per visit (most-played first).
+        pending = db.execute(
+            """SELECT g.id FROM games g
+               WHERE g.igdb_id IS NULL AND g.igdb_checked = 0
+                 AND (g.id IN (SELECT game_id FROM library WHERE user_id = ?)
+                      OR g.id IN (SELECT game_id FROM entries WHERE user_id = ?))
+               ORDER BY COALESCE((SELECT playtime_minutes FROM library l
+                                  WHERE l.game_id = g.id AND l.user_id = ?), 0) DESC
+               LIMIT 3""",
+            (person["id"],) * 3,
+        ).fetchall()
+        for r in pending:
+            enrich_game(db, r["id"])
     entries = db.execute(
         """SELECT e.*, g.title, g.cover_id FROM entries e JOIN games g ON g.id = e.game_id
            WHERE e.user_id = ? ORDER BY e.updated_at DESC""",
@@ -788,7 +930,7 @@ def steam_import():
     uid = g.user["id"]
     before = db.execute("SELECT COUNT(*) FROM library WHERE user_id = ?", (uid,)).fetchone()[0]
     for title, minutes in playtime.values():
-        db.execute("INSERT OR IGNORE INTO games (title) VALUES (?)", (title,))
+        db.execute("INSERT OR IGNORE INTO games (title, norm_title) VALUES (?, ?)", (title, norm_title(title)))
         gid = db.execute("SELECT id FROM games WHERE title = ?", (title,)).fetchone()["id"]
         db.execute(
             """INSERT INTO library (user_id, game_id, playtime_minutes) VALUES (?, ?, ?)
@@ -868,10 +1010,25 @@ form.inline{display:inline;margin:0}
 .thumb{width:36px;height:50px;object-fit:cover;border-radius:3px;background:var(--surface);flex:none;display:block}
 .thumb.empty{border:1px solid var(--line)}
 .gamehead{display:flex;gap:24px;align-items:flex-start}
-.cover-lg{width:150px;aspect-ratio:264/374;object-fit:cover;border-radius:4px;flex:none;background:var(--surface)}
-@media (max-width:480px){.cover-lg{width:110px}}
+.cover-lg{display:block;width:200px;aspect-ratio:264/374;object-fit:cover;border-radius:10px;flex:none;background:var(--surface)}
+.cover-lg.empty{border:1px solid var(--line)}
+@media (max-width:480px){.cover-lg{width:120px}}
 .ac-list .lead{display:flex;gap:10px;align-items:center;min-width:0}
 .ac-list .thumb{width:28px;height:40px}
+.grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(150px,1fr));gap:16px}
+.tile{position:relative;display:block;aspect-ratio:264/374;border-radius:10px;overflow:hidden;background:var(--surface);color:var(--text);text-decoration:none;box-shadow:0 1px 3px rgba(0,0,0,.35);transition:transform .18s ease,box-shadow .18s ease}
+.tile img,.tile .noart{position:absolute;inset:0;width:100%;height:100%;object-fit:cover;transition:transform .25s ease}
+.tile .noart{background:linear-gradient(160deg,#2a3441,#1b222c)}
+.tile .cap{position:absolute;left:0;right:0;bottom:0;display:flex;align-items:flex-end;justify-content:space-between;gap:8px;padding:30px 10px 10px;background:linear-gradient(to top,rgba(10,14,20,.94) 0%,rgba(10,14,20,.72) 55%,rgba(10,14,20,0) 100%)}
+.tile .name{font-size:.85rem;line-height:1.25;font-weight:600;overflow:hidden;display:-webkit-box;-webkit-line-clamp:2;-webkit-box-orient:vertical;overflow-wrap:anywhere}
+.badge{flex:none;font-size:.78rem;font-weight:700;font-variant-numeric:tabular-nums;border-radius:6px;padding:2px 7px;color:#10151c;background:#8d99a8}
+.badge.low{background:#f0623b}
+.badge.mid{background:#f2c230}
+.badge.high{background:#3fb56a}
+.badge.max{background:#4a90e2}
+.tile:hover,.tile:focus-visible{z-index:2;transform:translateY(-5px) scale(1.02);box-shadow:0 12px 24px rgba(0,0,0,.45)}
+.tile:hover img{transform:scale(1.05)}
+@media (prefers-reduced-motion:reduce){.tile,.tile img{transition:none}.tile:hover,.tile:focus-visible,.tile:hover img{transform:none}}
 .navsearch{margin-right:auto;flex:0 1 260px}
 .navsearch input{padding:6px 10px}
 .ac{position:relative;display:block}
@@ -968,7 +1125,14 @@ document.querySelectorAll("input[data-suggest]").forEach(function(input){
 });
 </script></body></html>"""
 
-HOME = """{% extends "base.html" %}{% block body %}
+TILES = """{% macro tile(href, title, cover_id, rating=None, tip=None) -%}
+<a class="tile" href="{{ href }}" title="{{ tip or title }}">
+{%- if cover_id %}<img src="{{ cover_url(cover_id, 'cover_big') }}" alt="" loading="lazy">{% else %}<span class="noart"></span>{% endif %}
+<span class="cap"><span class="name">{{ title }}</span><span class="badge {{ rating|tier }}">{{ rating|badge }}</span></span>
+</a>
+{%- endmacro %}"""
+
+HOME = """{% extends "base.html" %}{% from "tiles.html" import tile %}{% block body %}
 <h2 style="margin-top:0">Recent activity</h2>
 {% for e in recent %}<div class="row">{{ cover_img(e.cover_id) }}<div class="main">
 <a href="{{ url_for('profile', username=e.username) }}">{{ e.username }}</a> rated
@@ -977,9 +1141,8 @@ HOME = """{% extends "base.html" %}{% block body %}
 </div><span class="score">{{ e.rating|score }}</span></div>
 {% else %}<p class="muted">Nothing here yet. <a href="{{ url_for('add') }}">Add a game.</a></p>{% endfor %}
 <h2>Top rated games</h2>
-{% for t in top %}<div class="row">{{ cover_img(t.cover_id) }}<a class="grow" href="{{ url_for('game', game_id=t.id) }}">{{ t.title }}</a>
-<span class="score">{{ t.avg|score }} <span class="meta">({{ t.n }})</span></span></div>
-{% else %}<p class="muted">No games rated yet.</p>{% endfor %}
+{% if top %}<div class="grid">{% for t in top %}{{ tile(url_for('game', game_id=t.id), t.title, t.cover_id, t.avg) }}{% endfor %}</div>
+{% else %}<p class="muted">No games rated yet.</p>{% endif %}
 {% endblock %}"""
 
 LANDING = """{% extends "base.html" %}{% block body %}
@@ -1023,12 +1186,14 @@ ADD = """{% extends "base.html" %}{% block title %}Add game - Gametrackr{% endbl
 {% endblock %}"""
 
 GAME = """{% extends "base.html" %}{% block title %}{{ game.title }} - Gametrackr{% endblock %}{% block body %}
-<div class="gamehead">{{ cover_img(game.cover_id, "cover_big", "cover-lg", False) }}<div>
+<div class="gamehead">{{ cover_img(game.cover_id, "cover_big", "cover-lg") }}<div>
 <h1>{{ game.title }}</h1>
 {% if game.release_year %}<p class="meta" style="margin-top:-12px">{{ game.release_year }}</p>{% endif %}
 {% if game.n %}<p><span class="big">{{ game.avg|score }}</span>
 <span class="meta">&nbsp;average from {{ game.n }} rating{{ "" if game.n == 1 else "s" }}</span></p>{% endif %}
-<p><a class="btn" href="{{ url_for('add', game=game.id) }}">{{ "Rate this game" if user else "Log in to rate" }}</a></p>
+<p style="display:flex;gap:16px;align-items:center;flex-wrap:wrap"><a class="btn" href="{{ url_for('add', game=game.id) }}">{{ ("Edit your rating" if mine else "Rate this game") if user else "Log in to rate" }}</a>
+{% if mine %}<form class="inline" method="post" action="{{ url_for('delete_entry', entry_id=mine.id) }}" onsubmit="return confirm('Remove this game from your list?')">
+<input type="hidden" name="csrf" value="{{ csrf_token }}"><button class="link">Remove from my list</button></form>{% endif %}</p>
 </div></div>
 <h2>Reviews</h2>
 {% for e in entries %}<div class="row"><div class="main">
@@ -1039,25 +1204,14 @@ GAME = """{% extends "base.html" %}{% block title %}{{ game.title }} - Gametrack
 {% else %}<p class="muted">No ratings yet.</p>{% endfor %}
 {% endblock %}"""
 
-PROFILE = """{% extends "base.html" %}{% block title %}{{ person.username }} - Gametrackr{% endblock %}{% block body %}
+PROFILE = """{% extends "base.html" %}{% from "tiles.html" import tile %}{% block title %}{{ person.username }} - Gametrackr{% endblock %}{% block body %}
 <h1>{{ person.username }}</h1>
 <p class="muted">{{ entries|length }} game{{ "" if entries|length == 1 else "s" }} rated
 {% if avg %}, average {{ avg|score }}{% endif %}. Member since {{ person.created_at|day }}.</p>
-{% set mine = user and user.id == person.id %}
-{% for e in entries %}<div class="row">{{ cover_img(e.cover_id) }}<div class="main">
-<a href="{{ url_for('game', game_id=e.game_id) }}">{{ e.title }}</a>
-{% if e.review %}<p class="review muted">{{ e.review }}</p>{% endif %}
-{% if mine %}<div class="actions"><a href="{{ url_for('add', game=e.game_id) }}">Edit</a>
-<form class="inline" method="post" action="{{ url_for('delete_entry', entry_id=e.id) }}"
-onsubmit="return confirm('Remove this game from your list?')">
-<input type="hidden" name="csrf" value="{{ csrf_token }}"><button class="link">Remove</button></form></div>{% endif %}
-</div><span class="score">{{ e.rating|score }}</span></div>
-{% else %}<p class="muted">No games yet.{% if mine %} <a href="{{ url_for('add') }}">Add your first game.</a>{% endif %}</p>{% endfor %}
+{% if entries %}<div class="grid">{% for e in entries %}{{ tile(url_for('game', game_id=e.game_id), e.title, e.cover_id, e.rating) }}{% endfor %}</div>
+{% else %}<p class="muted">No games yet.{% if user and user.id == person.id %} <a href="{{ url_for('add') }}">Add your first game.</a>{% endif %}</p>{% endif %}
 {% if library %}<h2>Unrated in your library</h2>
-{% for l in library %}<div class="row">{{ cover_img(l.cover_id) }}<div class="main">
-<a href="{{ url_for('game', game_id=l.game_id) }}">{{ l.title }}</a>
-<span class="meta">{{ (l.playtime_minutes / 60)|round(1) }} h played</span></div>
-<a href="{{ url_for('add', game=l.game_id) }}">Rate</a></div>{% endfor %}{% endif %}
+<div class="grid">{% for l in library %}{{ tile(url_for('game', game_id=l.game_id), l.title, l.cover_id) }}{% endfor %}</div>{% endif %}
 {% endblock %}"""
 
 SETTINGS = """{% extends "base.html" %}{% block title %}Settings - Gametrackr{% endblock %}{% block body %}
@@ -1092,18 +1246,16 @@ ERROR = """{% extends "base.html" %}{% block body %}
 <h1>{{ err.code }}</h1><p class="muted">{{ err.description }}</p>
 <p><a href="{{ url_for('home') }}">Back to home</a></p>{% endblock %}"""
 
-SEARCH = """{% extends "base.html" %}{% block title %}{{ q or "Search" }} - Gametrackr{% endblock %}{% block body %}
+SEARCH = """{% extends "base.html" %}{% from "tiles.html" import tile %}{% block title %}{{ q or "Search" }} - Gametrackr{% endblock %}{% block body %}
 <h1>{% if q %}Results for &ldquo;{{ q }}&rdquo;{% else %}Search games{% endif %}</h1>
-{% for r in results %}<div class="row">{{ cover_img(r.cover_id) }}
-<a class="grow" href="{{ url_for('game', game_id=r.id) if r.id else url_for('game_from_igdb', igdb_id=r.igdb_id) }}">{{ r.title }}{% if r.year %} <span class="meta">({{ r.year }})</span>{% endif %}</a>
-{% if r.n %}<span class="score">{{ r.avg|score }} <span class="meta">({{ r.n }})</span></span>{% else %}<span class="meta">Not rated yet</span>{% endif %}</div>
-{% else %}{% if q %}<p class="muted">No games match that search.</p>
+{% if results %}<div class="grid">{% for r in results %}{{ tile(url_for('game', game_id=r.id) if r.id else url_for('game_from_igdb', igdb_id=r.igdb_id), r.title, r.cover_id, r.avg if r.n else None, r.title ~ (" (" ~ r.year ~ ")" if r.year else "")) }}{% endfor %}</div>
+{% elif q %}<p class="muted">No games match that search.</p>
 <p><a class="btn" href="{{ url_for('add', title=q) }}">Add &ldquo;{{ q }}&rdquo;</a></p>
-{% else %}<p class="muted">Type a game title in the search box.</p>{% endif %}{% endfor %}
+{% else %}<p class="muted">Type a game title in the search box.</p>{% endif %}
 {% endblock %}"""
 
 app.jinja_loader = DictLoader({
-    "base.html": BASE, "home.html": HOME, "landing.html": LANDING, "register.html": REGISTER,
+    "base.html": BASE, "home.html": HOME, "tiles.html": TILES, "landing.html": LANDING, "register.html": REGISTER,
     "login.html": LOGIN, "add.html": ADD, "game.html": GAME,
     "profile.html": PROFILE, "error.html": ERROR, "settings.html": SETTINGS, "search.html": SEARCH,
 })
