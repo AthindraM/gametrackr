@@ -1,5 +1,4 @@
 .venv/
-venv/
 __pycache__/
 *.py[cod]
 .env
@@ -7,4 +6,5 @@ __pycache__/
 gametrackr.db
 .DS_Store
 .env.example
-
+*.db
+venv/

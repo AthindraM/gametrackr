@@ -1,0 +1,20 @@
+services:
+  - type: web
+    name: gametrackr
+    runtime: python
+    plan: starter            # persistent disks need a paid plan
+    buildCommand: pip install -r requirements.txt
+    startCommand: gunicorn app:app --workers 2 --bind 0.0.0.0:$PORT
+    envVars:
+      - key: BEHIND_PROXY
+        value: "1"
+      - key: GAMETRACKR_DB
+        value: /var/data/gametrackr.db
+      - key: SECRET_KEY
+        generateValue: true
+      - key: STEAM_API_KEY
+        sync: false          # you enter this in the Render dashboard
+    disk:
+      name: gametrackr-data
+      mountPath: /var/data
+      sizeGB: 1

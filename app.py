@@ -20,7 +20,7 @@ from jinja2 import DictLoader
 from werkzeug.security import check_password_hash, generate_password_hash
 
 BASE_DIR = os.path.dirname(os.path.abspath(__file__))
-DB_PATH = os.path.join(BASE_DIR, "gametrackr.db")
+DB_PATH = os.environ.get("GAMETRACKR_DB") or os.path.join(BASE_DIR, "gametrackr.db")
 KEY_PATH = os.path.join(BASE_DIR, ".secret_key")
 
 app = Flask(__name__)
@@ -38,6 +38,15 @@ def load_secret_key():
 
 app.secret_key = os.environ.get("SECRET_KEY") or load_secret_key()
 app.config["SESSION_COOKIE_SAMESITE"] = "Lax"
+
+# In production the app sits behind a reverse proxy (Caddy/nginx). Set
+# BEHIND_PROXY=1 so URLs (like the Steam sign-in return address) use the
+# public https://gametrackr.dev address instead of the internal one.
+if os.environ.get("BEHIND_PROXY"):
+    from werkzeug.middleware.proxy_fix import ProxyFix
+
+    app.wsgi_app = ProxyFix(app.wsgi_app, x_for=1, x_proto=1, x_host=1)
+    app.config["SESSION_COOKIE_SECURE"] = True
 
 # ---------------------------------------------------------------- database
 
