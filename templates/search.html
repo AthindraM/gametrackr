@@ -1,23 +1,29 @@
 {% extends "base.html" %}
-{% from "tiles.html" import tile %}
 {% block title %}{{ q or "Search" }} - Gametrackr{% endblock %}
 
 {% block body %}
   <h1>{% if q %}Results for &ldquo;{{ q }}&rdquo;{% else %}Search games{% endif %}</h1>
 
   {% if results %}
-    <div class="grid">
-      {% for r in results %}
-        {# Games not on Gametrackr yet (id is None) are created from IGDB when opened. #}
-        {{ tile(
-             url_for('game', game_id=r.id) if r.id else url_for('game_from_igdb', igdb_id=r.igdb_id),
-             r.title,
-             r.cover_id,
-             r.avg if r.n else None,
-             r.title ~ (" (" ~ r.year ~ ")" if r.year else ""),
-             lazy=loop.index > 24) }}
-      {% endfor %}
-    </div>
+    <p class="muted">Best matches first</p>
+    {% for r in results %}
+      {# Games not on Gametrackr yet (id is None) are created from IGDB when opened. #}
+      {% set rating = r.avg if r.n else None %}
+      <div class="row">
+        {{ cover_img(r.cover_id) }}
+        <div class="main">
+          <a href="{{ url_for('game', game_id=r.id) if r.id else url_for('game_from_igdb', igdb_id=r.igdb_id) }}">{{ r.title }}</a>
+          {% if r.year or r.n %}
+            <span class="sub">
+              {% if r.year %}{{ r.year }}{% endif %}
+              {% if r.year and r.n %}&middot;{% endif %}
+              {% if r.n %}{{ r.n }} rating{{ "" if r.n == 1 else "s" }}{% endif %}
+            </span>
+          {% endif %}
+        </div>
+        <span class="badge {{ rating|tier }}">{{ rating|badge }}</span>
+      </div>
+    {% endfor %}
   {% elif q %}
     <p class="muted">No games match that search.</p>
     <p><a class="btn" href="{{ url_for('add', title=q) }}">Add &ldquo;{{ q }}&rdquo;</a></p>

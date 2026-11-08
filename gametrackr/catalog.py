@@ -6,6 +6,7 @@ from flask import current_app, g
 
 from .db import get_db
 from .igdb import IgdbError, igdb_configured, igdb_search
+from .ranking import rank
 from .text import norm_title
 
 
@@ -107,7 +108,7 @@ def enrich_game(db, game_id):
 
 
 def search_results(q, local_limit, igdb_limit):
-    """Games already on Gametrackr first, then matches from IGDB."""
+    """Matching games from Gametrackr and IGDB, best matches first (see ranking.py)."""
     local = [
         {
             "id": r["id"],
@@ -117,16 +118,20 @@ def search_results(q, local_limit, igdb_limit):
             "cover_id": r["cover_id"],
             "avg": r["avg"] or 0,
             "n": r["n"],
+            "popularity": 0,
         }
         for r in find_games(q, local_limit)
     ]
     if not (igdb_configured() and len(q) >= 3):
-        return local
+        return rank(q, local)
     try:
         remote = igdb_search(q, igdb_limit)
     except IgdbError as exc:
         current_app.logger.warning("IGDB search failed: %s", exc)
-        return local
+        return rank(q, local)
+    popularity = {x["igdb_id"]: x["popularity"] for x in remote}
+    for r in local:  # games already on Gametrackr borrow IGDB's popularity numbers
+        r["popularity"] = popularity.get(r["igdb_id"], 0)
     known = {r["igdb_id"] for r in local if r["igdb_id"]}
     remote = [x for x in remote if x["igdb_id"] not in known]
     have = {}
@@ -155,15 +160,16 @@ def search_results(q, local_limit, igdb_limit):
                 "cover_id": x["cover_id"],
                 "avg": (mine["avg"] or 0) if mine else 0,
                 "n": mine["n"] if mine else 0,
+                "popularity": x["popularity"],
             }
         )
     names = {norm_title(x["title"]) for x in fresh}
     local = [r for r in local if r["igdb_id"] or norm_title(r["title"]) not in names]
-    return local + fresh
+    return rank(q, local + fresh)
 
 
 def find_games(q, limit):
-    """Case-insensitive title search: prefix matches first, then most-rated."""
+    """Case-insensitive title search on Gametrackr. search_results() does the final ranking."""
     uid = g.user["id"] if g.user else -1
     esc = q.replace("!", "!!").replace("%", "!%").replace("_", "!_")
     return (

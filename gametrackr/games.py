@@ -44,7 +44,7 @@ def suggest_games():
                 "avg": r["avg"],
                 "n": r["n"],
             }
-            for r in search_results(q, 8, 8)[:8]
+            for r in search_results(q, 8, 15)[:8]
         ]
     )
 
@@ -52,7 +52,7 @@ def suggest_games():
 @app.route("/search")
 def search():
     q = " ".join(request.args.get("q", "").split())[:100]
-    results = search_results(q, 50, 20) if q else []
+    results = search_results(q, 50, 30)[:40] if q else []
     return render_template("search.html", q=q, results=results)
 
 

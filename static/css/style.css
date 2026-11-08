@@ -610,3 +610,10 @@ select:focus {
     padding: 8px 0;
   }
 }
+
+/* Second line under a title in list rows (year, rating count) */
+.row .sub {
+  display: block;
+  font-size: 0.85rem;
+  color: var(--muted);
+}

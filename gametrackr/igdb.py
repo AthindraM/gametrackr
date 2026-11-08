@@ -27,7 +27,11 @@ IGDB_CALLS = deque()
 IGDB_STATE = {"down_until": 0.0}
 
 
-IGDB_FIELDS = "fields name,first_release_date,cover.image_id;"
+# total_rating_count and follows measure popularity; the basic set is the fallback.
+IGDB_FIELDS = (
+    "fields name,first_release_date,cover.image_id,total_rating_count,follows;"
+)
+IGDB_FIELDS_BASIC = "fields name,first_release_date,cover.image_id;"
 
 
 class IgdbError(Exception):
@@ -134,6 +138,17 @@ def igdb_cached(key, query):
     return result
 
 
+def igdb_games(key, before, after):
+    """Run a games query asking for popularity too; if IGDB rejects those fields
+    (HTTP 400), retry with just the basics so search keeps working."""
+    try:
+        return igdb_cached(key, f"{before}{IGDB_FIELDS}{after}")
+    except IgdbError as exc:
+        if "400" not in str(exc):
+            raise
+        return igdb_cached(key + ("basic",), f"{before}{IGDB_FIELDS_BASIC}{after}")
+
+
 def parse_igdb(item):
     name = " ".join(str(item.get("name") or "").split())[:120]
     if not name or not isinstance(item.get("id"), int):
@@ -145,18 +160,27 @@ def parse_igdb(item):
         else None
     )
     cover = (item.get("cover") or {}).get("image_id")
+    popularity = sum(
+        v
+        for v in (item.get("total_rating_count"), item.get("follows"))
+        if isinstance(v, int)
+    )
     return {
         "igdb_id": item["id"],
         "title": name,
         "year": year,
         "cover_id": cover if cover and COVER_ID_RE.match(cover) else None,
+        "popularity": popularity,
     }
 
 
 def igdb_search(q, limit):
     safe = q.replace("\\", " ").replace('"', " ")
-    query = f'search "{safe}"; {IGDB_FIELDS} where version_parent = null; limit {int(limit)};'
-    items = igdb_cached(("s", safe.lower(), limit), query)
+    items = igdb_games(
+        ("s", safe.lower(), limit),
+        f'search "{safe}"; ',
+        f" where version_parent = null; limit {int(limit)};",
+    )
     now = time.time()
     for item in items:  # picking a result later needs no second IGDB request
         if isinstance(item, dict) and isinstance(item.get("id"), int):
@@ -165,6 +189,6 @@ def igdb_search(q, limit):
 
 
 def igdb_get(igdb_id):
-    items = igdb_cached(("g", igdb_id), f"{IGDB_FIELDS} where id = {int(igdb_id)};")
+    items = igdb_games(("g", igdb_id), "", f" where id = {int(igdb_id)};")
     parsed = [x for x in map(parse_igdb, items) if x]
     return parsed[0] if parsed else None

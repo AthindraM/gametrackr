@@ -23,6 +23,7 @@ Production: `gunicorn app:app`
       igdb.py              IGDB client and cover-image helpers
       shelves.py           shelves (Currently Playing / Completed / Wishlist) and profile shelf queries
       catalog.py           game search, linking to IGDB, merging duplicates
+      ranking.py           search ranking: title match, popularity, release year (weights at the top)
       text.py              title normalizing
       auth.py              sign up / log in / log out
       games.py             home, search, game pages, add/remove ratings, shelf dropdown
