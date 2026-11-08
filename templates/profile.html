@@ -1,0 +1,34 @@
+{% extends "base.html" %}
+{% from "tiles.html" import tile %}
+{% block title %}{{ person.username }} - Gametrackr{% endblock %}
+
+{% block body %}
+  <h1>{{ person.username }}</h1>
+  <p class="muted">
+    {{ entries|length }} game{{ "" if entries|length == 1 else "s" }} rated{% if avg %}, average {{ avg|score }}{% endif %}.
+    Member since {{ person.created_at|day }}.
+  </p>
+
+  {% if entries %}
+    <div class="grid">
+      {% for e in entries %}
+        {{ tile(url_for('game', game_id=e.game_id), e.title, e.cover_id, e.rating, lazy=loop.index > 24) }}
+      {% endfor %}
+    </div>
+  {% else %}
+    <p class="muted">
+      No games yet.
+      {% if user and user.id == person.id %}<a href="{{ url_for('add') }}">Add your first game.</a>{% endif %}
+    </p>
+  {% endif %}
+
+  {# Only the owner sees this: games imported from Steam that they haven't rated yet. #}
+  {% if library %}
+    <h2>Unrated in your library</h2>
+    <div class="grid">
+      {% for l in library %}
+        {{ tile(url_for('game', game_id=l.game_id), l.title, l.cover_id, lazy=loop.index > 24) }}
+      {% endfor %}
+    </div>
+  {% endif %}
+{% endblock %}

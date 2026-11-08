@@ -1,0 +1,21 @@
+{% extends "base.html" %}
+{% block title %}Sign up - Gametrackr{% endblock %}
+
+{% block body %}
+  <h1>Create your account</h1>
+  <form class="stack" method="post">
+    <input type="hidden" name="csrf" value="{{ csrf_token }}">
+    <label>Email
+      <input type="email" name="email" value="{{ form.email }}" required autofocus>
+    </label>
+    <label>Username
+      <input name="username" value="{{ form.username }}" required
+             minlength="3" maxlength="20" pattern="[A-Za-z0-9_]+">
+    </label>
+    <label>Password
+      <input type="password" name="password" required minlength="8">
+    </label>
+    <button>Create account</button>
+  </form>
+  <p class="muted">Already have an account? <a href="{{ url_for('login') }}">Log in</a></p>
+{% endblock %}

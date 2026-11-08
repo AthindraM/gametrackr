@@ -1,0 +1,46 @@
+{% extends "base.html" %}
+{% block title %}{{ game.title }} - Gametrackr{% endblock %}
+
+{% block body %}
+  <div class="gamehead">
+    {{ cover_img(game.cover_id, "cover_big", "cover-lg") }}
+    <div>
+      <h1>{{ game.title }}</h1>
+      {% if game.release_year %}
+        <p class="meta year">{{ game.release_year }}</p>
+      {% endif %}
+      {% if game.n %}
+        <p>
+          <span class="big">{{ game.avg|score }}</span>
+          <span class="meta">&nbsp;average from {{ game.n }} rating{{ "" if game.n == 1 else "s" }}</span>
+        </p>
+      {% endif %}
+      <p class="actions-row">
+        <a class="btn" href="{{ url_for('add', game=game.id) }}">
+          {{ ("Edit your rating" if mine else "Rate this game") if user else "Log in to rate" }}
+        </a>
+        {% if mine %}
+          <form class="inline" method="post" action="{{ url_for('delete_entry', entry_id=mine.id) }}"
+                onsubmit="return confirm('Remove this game from your list?')">
+            <input type="hidden" name="csrf" value="{{ csrf_token }}">
+            <button class="link">Remove from my list</button>
+          </form>
+        {% endif %}
+      </p>
+    </div>
+  </div>
+
+  <h2>Reviews</h2>
+  {% for e in entries %}
+    <div class="row">
+      <div class="main">
+        <a href="{{ url_for('profile', username=e.username) }}">{{ e.username }}</a>
+        <span class="meta">{{ e.updated_at|day }}</span>
+        {% if e.review %}<p class="review">{{ e.review }}</p>{% endif %}
+      </div>
+      <span class="score">{{ e.rating|score }}</span>
+    </div>
+  {% else %}
+    <p class="muted">No ratings yet.</p>
+  {% endfor %}
+{% endblock %}

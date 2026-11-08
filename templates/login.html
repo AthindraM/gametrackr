@@ -1,0 +1,17 @@
+{% extends "base.html" %}
+{% block title %}Log in - Gametrackr{% endblock %}
+
+{% block body %}
+  <h1>Log in</h1>
+  <form class="stack" method="post">
+    <input type="hidden" name="csrf" value="{{ csrf_token }}">
+    <label>Username or email
+      <input name="identifier" value="{{ ident }}" required autofocus>
+    </label>
+    <label>Password
+      <input type="password" name="password" required>
+    </label>
+    <button>Log in</button>
+  </form>
+  <p class="muted">New here? <a href="{{ url_for('register') }}">Create an account</a></p>
+{% endblock %}

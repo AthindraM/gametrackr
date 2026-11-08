@@ -1,0 +1,34 @@
+{% extends "base.html" %}
+{% from "tiles.html" import tile %}
+
+{% block body %}
+  <h2 class="first">Recent activity</h2>
+  {% for e in recent %}
+    <div class="row">
+      {{ cover_img(e.cover_id) }}
+      <div class="main">
+        <a href="{{ url_for('profile', username=e.username) }}">{{ e.username }}</a> rated
+        <a href="{{ url_for('game', game_id=e.game_id) }}">{{ e.title }}</a>
+        {% if e.review %}
+          <p class="review muted">
+            {{ e.review[:240] }}{% if e.review|length > 240 %}&hellip;{% endif %}
+          </p>
+        {% endif %}
+      </div>
+      <span class="score">{{ e.rating|score }}</span>
+    </div>
+  {% else %}
+    <p class="muted">Nothing here yet. <a href="{{ url_for('add') }}">Add a game.</a></p>
+  {% endfor %}
+
+  <h2>Top rated games</h2>
+  {% if top %}
+    <div class="grid">
+      {% for t in top %}
+        {{ tile(url_for('game', game_id=t.id), t.title, t.cover_id, t.avg) }}
+      {% endfor %}
+    </div>
+  {% else %}
+    <p class="muted">No games rated yet.</p>
+  {% endif %}
+{% endblock %}

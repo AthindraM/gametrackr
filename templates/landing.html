@@ -1,0 +1,16 @@
+{% extends "base.html" %}
+
+{% block body %}
+  <div class="landing">
+    <h1>
+      <span><b class="blue">Track</b> games you&rsquo;ve played,</span>
+      <span><b class="blue">Find</b> new games,</span>
+      <span><b class="blue">Share</b> games with your friends!</span>
+    </h1>
+
+    <div class="panel">
+      <a class="btn" href="{{ url_for('register') }}">Sign Up</a>
+      <a class="btn light" href="{{ url_for('login') }}">Log In</a>
+    </div>
+  </div>
+{% endblock %}

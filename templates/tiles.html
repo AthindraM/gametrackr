@@ -1,0 +1,16 @@
+{# A game tile: cover art with the name and a colored rating badge along the bottom.
+   rating=None shows a gray "UR" (unrated). lazy=True defers loading the image. #}
+{% macro tile(href, title, cover_id, rating=None, tip=None, lazy=False) -%}
+  <a class="tile" href="{{ href }}" title="{{ tip or title }}">
+    {%- if cover_id %}
+      <img src="{{ cover_url(cover_id, 'cover_big') }}" alt="" data-cover
+           referrerpolicy="no-referrer" decoding="async"{% if lazy %} loading="lazy"{% endif %}>
+    {%- else %}
+      <span class="noart"></span>
+    {%- endif %}
+    <span class="cap">
+      <span class="name">{{ title }}</span>
+      <span class="badge {{ rating|tier }}">{{ rating|badge }}</span>
+    </span>
+  </a>
+{%- endmacro %}

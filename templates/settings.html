@@ -1,0 +1,52 @@
+{% extends "base.html" %}
+{% block title %}Settings - Gametrackr{% endblock %}
+
+{% block body %}
+  <h1>Settings</h1>
+  <div class="settings">
+    <nav class="tabs">
+      {% for key, label in sections %}
+        <a class="tab {{ 'active' if key == section }}" href="{{ url_for('settings', section=key) }}">{{ label }}</a>
+      {% endfor %}
+    </nav>
+
+    <div>
+      {% if section == "connections" %}
+        <h2 class="first">Steam</h2>
+
+        {% if user.steam_id %}
+          <p class="muted">Connected to Steam ID {{ user.steam_id }}.</p>
+
+          {% if configured %}
+            <p>
+              Import your Steam library to add every game you own to your list, ready to rate.
+              Your Steam profile's Game details must be set to Public.
+            </p>
+            <form class="inline" method="post" action="{{ url_for('steam_import') }}">
+              <input type="hidden" name="csrf" value="{{ csrf_token }}">
+              <button>{{ "Import again" if count else "Import my games" }}</button>
+            </form>
+            {% if count %}<p class="meta">{{ count }} games in your library.</p>{% endif %}
+          {% else %}
+            <p class="muted">
+              Importing isn't set up on this server yet. Set the STEAM_API_KEY environment variable and restart.
+            </p>
+          {% endif %}
+
+          <div class="spaced">
+            <form class="inline" method="post" action="{{ url_for('steam_disconnect') }}">
+              <input type="hidden" name="csrf" value="{{ csrf_token }}">
+              <button class="link">Disconnect Steam account</button>
+            </form>
+          </div>
+        {% else %}
+          <p class="muted">
+            Connect your Steam account to import the games you own. You'll sign in on Steam's own site;
+            Gametrackr never sees your Steam password.
+          </p>
+          <p><a class="btn" href="{{ url_for('steam_connect') }}">Connect Steam</a></p>
+        {% endif %}
+      {% endif %}
+    </div>
+  </div>
+{% endblock %}
