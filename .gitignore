@@ -1,4 +1,5 @@
 .venv/
+gametrackr.db
 __pycache__/
 *.py[cod]
 .env
