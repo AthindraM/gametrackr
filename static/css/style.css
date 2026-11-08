@@ -34,10 +34,11 @@ a:hover {
 header {
   border-bottom: 1px solid var(--line);
 }
-/* Page width: the header bar and page content share the same wide column */
+/* Page width: the header bar and page content share one column. 952px less
+   2 x 24px padding leaves 904px, which fits 5 tiles of 168px with 16px gaps. */
 .bar,
 main {
-  max-width: 1280px;
+  max-width: 952px;
   margin: 0 auto;
   padding: 0 24px;
 }
@@ -352,7 +353,7 @@ img[data-cover].failed {
 }
 .grid {
   display: grid;
-  grid-template-columns: repeat(auto-fill, minmax(200px, 1fr));
+  grid-template-columns: repeat(auto-fill, minmax(150px, 1fr));
   gap: 16px;
 }
 .tile {
