@@ -18,7 +18,7 @@ PROFILE_SHELVES = [
 ]
 PROFILE_SHELF_NAMES = dict(PROFILE_SHELVES)
 
-PREVIEW_COUNT = 4  # games shown per shelf on the profile
+PREVIEW_COUNT = 5  # games shown per shelf on the profile
 TOP_RATED_PAGE_LIMIT = 10  # games shown when Top Rated is expanded
 
 # Every game the user has rated, shelved, or imported from Steam.

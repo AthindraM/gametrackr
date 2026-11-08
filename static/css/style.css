@@ -34,11 +34,12 @@ a:hover {
 header {
   border-bottom: 1px solid var(--line);
 }
+/* Page width: the header bar and page content share the same wide column */
 .bar,
 main {
-  max-width: 760px;
+  max-width: 1280px;
   margin: 0 auto;
-  padding: 0 20px;
+  padding: 0 24px;
 }
 .bar {
   display: flex;
@@ -160,6 +161,7 @@ button.link:hover {
   white-space: nowrap;
 }
 .review {
+  max-width: 75ch;
   margin: 6px 0 0;
   white-space: pre-wrap;
   overflow-wrap: anywhere;
@@ -250,6 +252,8 @@ form.inline {
   color: #ff6b6b;
 }
 .landing {
+  max-width: 1000px;
+  margin: 0 auto;
   display: grid;
   grid-template-columns: 1fr 300px;
   gap: 56px;
@@ -348,7 +352,7 @@ img[data-cover].failed {
 }
 .grid {
   display: grid;
-  grid-template-columns: repeat(auto-fill, minmax(150px, 1fr));
+  grid-template-columns: repeat(auto-fill, minmax(200px, 1fr));
   gap: 16px;
 }
 .tile {
@@ -448,7 +452,7 @@ img[data-cover].failed {
 }
 .navsearch {
   margin-right: auto;
-  flex: 0 1 260px;
+  flex: 0 1 360px;
 }
 .navsearch input {
   padding: 6px 10px;
@@ -594,13 +598,13 @@ select:focus {
 }
 .shelf-row {
   display: grid;
-  grid-template-columns: repeat(4, minmax(0, 1fr));
+  grid-template-columns: repeat(5, minmax(0, 1fr));
   gap: 16px;
 }
-@media (max-width: 600px) {
-  /* keep one row of 4 on small screens; scroll sideways instead of wrapping */
+@media (max-width: 720px) {
+  /* keep one row of 5 on small screens; scroll sideways instead of wrapping */
   .shelf-row {
-    grid-template-columns: repeat(4, 130px);
+    grid-template-columns: repeat(5, 130px);
     overflow-x: auto;
     padding: 8px 0;
   }
