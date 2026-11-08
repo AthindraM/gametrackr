@@ -15,18 +15,30 @@
           <span class="meta">&nbsp;average from {{ game.n }} rating{{ "" if game.n == 1 else "s" }}</span>
         </p>
       {% endif %}
-      <p class="actions-row">
+      <div class="actions-row">
         <a class="btn" href="{{ url_for('add', game=game.id) }}">
           {{ ("Edit your rating" if mine else "Rate this game") if user else "Log in to rate" }}
         </a>
-        {% if mine %}
-          <form class="inline" method="post" action="{{ url_for('delete_entry', entry_id=mine.id) }}"
-                onsubmit="return confirm('Remove this game from your list?')">
+        {% if user %}
+          <form class="shelf-form" method="post" action="{{ url_for('shelf_update', game_id=game.id) }}">
             <input type="hidden" name="csrf" value="{{ csrf_token }}">
-            <button class="link">Remove from my list</button>
+            <select name="shelf" aria-label="Shelf" data-autosubmit>
+              <option value="">{{ "Remove from shelf" if my_shelf else "Add to a shelf" }}</option>
+              {% for key, name in shelves.items() %}
+                <option value="{{ key }}" {{ "selected" if key == my_shelf }}>{{ name }}</option>
+              {% endfor %}
+            </select>
+            <noscript><button class="link">Save</button></noscript>
           </form>
         {% endif %}
-      </p>
+        {% if mine %}
+          <form class="inline" method="post" action="{{ url_for('delete_entry', entry_id=mine.id) }}"
+                onsubmit="return confirm('Remove your rating for this game?')">
+            <input type="hidden" name="csrf" value="{{ csrf_token }}">
+            <button class="link">Remove my rating</button>
+          </form>
+        {% endif %}
+      </div>
     </div>
   </div>
 

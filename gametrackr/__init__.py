@@ -30,6 +30,6 @@ app.teardown_appcontext(close_db)
 app.add_template_global(cover_url, "cover_url")
 
 # Importing these modules registers their routes and template helpers.
-from . import auth, games, helpers, misc, settings, steam  # noqa: E402,F401
+from . import auth, games, helpers, misc, profiles, settings, steam  # noqa: E402,F401
 
 init_db()

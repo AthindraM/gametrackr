@@ -15,6 +15,10 @@ def merge_games(db, src, dst):
     db.execute("DELETE FROM entries WHERE game_id = ?", (src,))
     db.execute("UPDATE OR IGNORE library SET game_id = ? WHERE game_id = ?", (dst, src))
     db.execute("DELETE FROM library WHERE game_id = ?", (src,))
+    db.execute(
+        "UPDATE OR IGNORE shelf_items SET game_id = ? WHERE game_id = ?", (dst, src)
+    )
+    db.execute("DELETE FROM shelf_items WHERE game_id = ?", (src,))
     db.execute("DELETE FROM games WHERE id = ?", (src,))
 
 
@@ -160,6 +164,7 @@ def search_results(q, local_limit, igdb_limit):
 
 def find_games(q, limit):
     """Case-insensitive title search: prefix matches first, then most-rated."""
+    uid = g.user["id"] if g.user else -1
     esc = q.replace("!", "!!").replace("%", "!%").replace("_", "!_")
     return (
         get_db()
@@ -170,11 +175,12 @@ def find_games(q, limit):
            WHERE g.title LIKE ? ESCAPE '!'
              AND (g.igdb_id IS NOT NULL
                   OR g.id IN (SELECT game_id FROM entries)
-                  OR g.id IN (SELECT game_id FROM library WHERE user_id = ?))
+                  OR g.id IN (SELECT game_id FROM library WHERE user_id = ?)
+                  OR g.id IN (SELECT game_id FROM shelf_items WHERE user_id = ?))
            GROUP BY g.id
            ORDER BY (g.title LIKE ? ESCAPE '!') DESC, n DESC, g.title
            LIMIT ?""",
-            (f"%{esc}%", g.user["id"] if g.user else -1, f"{esc}%", limit),
+            (f"%{esc}%", uid, uid, f"{esc}%", limit),
         )
         .fetchall()
     )

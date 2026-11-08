@@ -118,3 +118,10 @@ document.querySelectorAll("input[data-suggest]").forEach(function (input) {
   });
   input.addEventListener("blur", close);
 });
+
+// Selects marked data-autosubmit save as soon as you pick an option.
+document.querySelectorAll("select[data-autosubmit]").forEach(function (select) {
+  select.addEventListener("change", function () {
+    select.form.submit();
+  });
+});

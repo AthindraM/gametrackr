@@ -5,30 +5,29 @@
 {% block body %}
   <h1>{{ person.username }}</h1>
   <p class="muted">
-    {{ entries|length }} game{{ "" if entries|length == 1 else "s" }} rated{% if avg %}, average {{ avg|score }}{% endif %}.
+    {{ rated }} game{{ "" if rated == 1 else "s" }} rated{% if avg %}, average {{ avg|score }}{% endif %}.
     Member since {{ person.created_at|day }}.
   </p>
 
-  {% if entries %}
-    <div class="grid">
-      {% for e in entries %}
-        {{ tile(url_for('game', game_id=e.game_id), e.title, e.cover_id, e.rating, lazy=loop.index > 24) }}
-      {% endfor %}
-    </div>
-  {% else %}
-    <p class="muted">
-      No games yet.
-      {% if user and user.id == person.id %}<a href="{{ url_for('add') }}">Add your first game.</a>{% endif %}
-    </p>
-  {% endif %}
+  {# Top Rated, Currently Playing, Wishlist, Completed, Library: one row of up to 4 each. #}
+  {% for shelf in shelves %}
+    <section class="shelf">
+      <div class="shelf-head">
+        <h2>{{ shelf.name }}</h2>
+        {% if shelf.total %}
+          <a class="viewall" href="{{ url_for('shelf_page', username=person.username, key=shelf.key) }}">View all</a>
+        {% endif %}
+      </div>
 
-  {# Only the owner sees this: games imported from Steam that they haven't rated yet. #}
-  {% if library %}
-    <h2>Unrated in your library</h2>
-    <div class="grid">
-      {% for l in library %}
-        {{ tile(url_for('game', game_id=l.game_id), l.title, l.cover_id, lazy=loop.index > 24) }}
-      {% endfor %}
-    </div>
-  {% endif %}
+      {% if shelf.games %}
+        <div class="shelf-row">
+          {% for game in shelf.games %}
+            {{ tile(url_for('game', game_id=game.game_id), game.title, game.cover_id, game.rating) }}
+          {% endfor %}
+        </div>
+      {% else %}
+        <p class="muted">{{ "No rated games yet." if shelf.key == "top-rated" else "Nothing here yet." }}</p>
+      {% endif %}
+    </section>
+  {% endfor %}
 {% endblock %}

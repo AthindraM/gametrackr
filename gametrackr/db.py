@@ -41,6 +41,13 @@ CREATE TABLE IF NOT EXISTS library (
     playtime_minutes INTEGER NOT NULL DEFAULT 0,
     PRIMARY KEY (user_id, game_id)
 );
+CREATE TABLE IF NOT EXISTS shelf_items (
+    user_id INTEGER NOT NULL REFERENCES users(id) ON DELETE CASCADE,
+    game_id INTEGER NOT NULL REFERENCES games(id) ON DELETE CASCADE,
+    shelf TEXT NOT NULL CHECK (shelf IN ('playing', 'completed', 'wishlist')),
+    added_at TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP,
+    PRIMARY KEY (user_id, game_id)
+);
 """
 
 

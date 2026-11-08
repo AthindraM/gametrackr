@@ -549,3 +549,59 @@ h2.first {
 .spaced {
   margin-top: 28px;
 }
+
+/* Dropdowns */
+select {
+  background: var(--surface);
+  border: 1px solid var(--line);
+  border-radius: 4px;
+  color: var(--text);
+  font: inherit;
+  padding: 8px 10px;
+  cursor: pointer;
+}
+select:focus {
+  border-color: var(--accent);
+  outline: none;
+}
+.stack select {
+  width: 100%;
+}
+.shelf-form {
+  margin: 0;
+}
+.shelf-form select {
+  padding: 7px 10px;
+}
+.hint {
+  font-size: 0.8rem;
+  color: var(--muted);
+}
+
+/* Profile shelves: a row of 4 with a "View all" link beside the heading */
+.shelf-head {
+  display: flex;
+  align-items: baseline;
+  gap: 12px;
+  margin: 32px 0 12px;
+}
+.shelf-head h2 {
+  margin: 0;
+}
+.viewall {
+  font-size: 0.8rem;
+  color: var(--muted);
+}
+.shelf-row {
+  display: grid;
+  grid-template-columns: repeat(4, minmax(0, 1fr));
+  gap: 16px;
+}
+@media (max-width: 600px) {
+  /* keep one row of 4 on small screens; scroll sideways instead of wrapping */
+  .shelf-row {
+    grid-template-columns: repeat(4, 130px);
+    overflow-x: auto;
+    padding: 8px 0;
+  }
+}

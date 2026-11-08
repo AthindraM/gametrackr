@@ -7,6 +7,7 @@ from .catalog import enrich_game, ensure_game_from_igdb, search_results
 from .db import get_db
 from .helpers import login_required
 from .igdb import IgdbError, cover_url, igdb_configured, igdb_get
+from .shelves import SHELVES, get_shelf, put_on_shelf
 from .text import norm_title
 
 
@@ -80,20 +81,22 @@ def game_from_igdb(igdb_id):
 @login_required
 def add():
     db = get_db()
-    form = {"title": "", "rating": "", "review": ""}
+    form = {"title": "", "rating": "", "review": "", "shelf": "", "shelf_was": ""}
     editing = False
     locked = False
 
     game_id = request.args.get("game", type=int)
     if request.method == "GET" and game_id:
         row = db.execute(
-            """SELECT g.title, e.rating, e.review FROM games g
+            """SELECT g.title, e.rating, e.review, s.shelf FROM games g
                LEFT JOIN entries e ON e.game_id = g.id AND e.user_id = ?
+               LEFT JOIN shelf_items s ON s.game_id = g.id AND s.user_id = ?
                WHERE g.id = ?""",
-            (g.user["id"], game_id),
+            (g.user["id"], g.user["id"], game_id),
         ).fetchone()
         if row:
             form["title"] = row["title"]
+            form["shelf"] = form["shelf_was"] = row["shelf"] or ""
             locked = True
             if row["rating"] is not None:
                 form["rating"] = f"{row['rating']:.1f}"
@@ -107,24 +110,37 @@ def add():
         title = " ".join(request.form.get("title", "").split())
         review = request.form.get("review", "").strip()
         raw_rating = request.form.get("rating", "").strip()
+        shelf = request.form.get("shelf", "")
+        shelf_was = request.form.get(
+            "shelf_was", ""
+        )  # what the page showed when it loaded
         form = {
             "title": title,
             "rating": raw_rating,
             "review": review,
             "igdb_id": request.form.get("igdb_id", ""),
+            "shelf": shelf,
+            "shelf_was": shelf_was,
         }
         error = None
         rating = None
-        try:
-            rating = round(float(raw_rating), 1)
-            if not 1.0 <= rating <= 10.0:
-                raise ValueError
-        except ValueError:
-            error = "Rating must be a number from 1.0 to 10.0."
+        if raw_rating:
+            try:
+                rating = round(float(raw_rating), 1)
+                if not 1.0 <= rating <= 10.0:
+                    raise ValueError
+            except ValueError:
+                error = "Rating must be a number from 1.0 to 10.0."
+        elif not shelf:
+            error = "Enter a rating, or pick a shelf."
+        if shelf and shelf not in SHELVES:
+            error = "Pick a shelf from the list."
         if not title or len(title) > 120:
             error = "Enter a game title (up to 120 characters)."
         elif len(review) > 5000:
             error = "Review is too long (5000 characters max)."
+        elif not error and review and rating is None:
+            error = "Add a rating to save a review."
 
         igdb_id = request.form.get("igdb_id", type=int)
         gid = None
@@ -147,19 +163,26 @@ def add():
                 gid = db.execute(
                     "SELECT id FROM games WHERE title = ?", (title,)
                 ).fetchone()["id"]
-            db.execute(
-                """INSERT INTO entries (user_id, game_id, rating, review)
-                   VALUES (?, ?, ?, ?)
-                   ON CONFLICT (user_id, game_id) DO UPDATE SET
-                     rating = excluded.rating,
-                     review = excluded.review,
-                     updated_at = CURRENT_TIMESTAMP""",
-                (g.user["id"], gid, rating, review or None),
-            )
+            if rating is not None:
+                db.execute(
+                    """INSERT INTO entries (user_id, game_id, rating, review)
+                       VALUES (?, ?, ?, ?)
+                       ON CONFLICT (user_id, game_id) DO UPDATE SET
+                         rating = excluded.rating,
+                         review = excluded.review,
+                         updated_at = CURRENT_TIMESTAMP""",
+                    (g.user["id"], gid, rating, review or None),
+                )
+            if shelf:
+                put_on_shelf(db, g.user["id"], gid, shelf)
+            elif shelf_was:  # the page showed a shelf and the user cleared it
+                put_on_shelf(db, g.user["id"], gid, "")
             db.commit()
             return redirect(url_for("game", game_id=gid))
 
-    return render_template("add.html", form=form, editing=editing, locked=locked)
+    return render_template(
+        "add.html", form=form, editing=editing, locked=locked, shelves=SHELVES
+    )
 
 
 @app.route("/game/<int:game_id>")
@@ -188,50 +211,30 @@ def game(game_id):
             "SELECT id FROM entries WHERE user_id = ? AND game_id = ?",
             (g.user["id"], game_id),
         ).fetchone()
-    return render_template("game.html", game=row, entries=entries, mine=mine)
-
-
-@app.route("/u/<username>")
-def profile(username):
-    db = get_db()
-    person = db.execute(
-        "SELECT id, username, created_at FROM users WHERE username = ?", (username,)
-    ).fetchone()
-    if person is None:
-        abort(404)
-    if igdb_configured() and g.user and g.user["id"] == person["id"]:
-        # Fetch cover art for a few unmatched games per visit (most-played first).
-        pending = db.execute(
-            """SELECT g.id FROM games g
-               WHERE g.igdb_id IS NULL AND g.igdb_checked = 0
-                 AND (g.id IN (SELECT game_id FROM library WHERE user_id = ?)
-                      OR g.id IN (SELECT game_id FROM entries WHERE user_id = ?))
-               ORDER BY COALESCE((SELECT playtime_minutes FROM library l
-                                  WHERE l.game_id = g.id AND l.user_id = ?), 0) DESC
-               LIMIT 3""",
-            (person["id"],) * 3,
-        ).fetchall()
-        for r in pending:
-            enrich_game(db, r["id"])
-    entries = db.execute(
-        """SELECT e.*, g.title, g.cover_id FROM entries e JOIN games g ON g.id = e.game_id
-           WHERE e.user_id = ? ORDER BY e.updated_at DESC, e.id DESC""",
-        (person["id"],),
-    ).fetchall()
-    avg = sum(e["rating"] for e in entries) / len(entries) if entries else None
-    library = []
-    if g.user and g.user["id"] == person["id"]:
-        library = db.execute(
-            """SELECT l.game_id, l.playtime_minutes, g.title, g.cover_id FROM library l
-               JOIN games g ON g.id = l.game_id
-               WHERE l.user_id = ?
-                 AND l.game_id NOT IN (SELECT game_id FROM entries WHERE user_id = ?)
-               ORDER BY l.playtime_minutes DESC, g.title""",
-            (person["id"], person["id"]),
-        ).fetchall()
+    my_shelf = get_shelf(db, g.user["id"], game_id) if g.user else ""
     return render_template(
-        "profile.html", person=person, entries=entries, avg=avg, library=library
+        "game.html",
+        game=row,
+        entries=entries,
+        mine=mine,
+        my_shelf=my_shelf,
+        shelves=SHELVES,
     )
+
+
+@app.route("/game/<int:game_id>/shelf", methods=["POST"])
+@login_required
+def shelf_update(game_id):
+    shelf = request.form.get("shelf", "")
+    if shelf and shelf not in SHELVES:
+        abort(400)
+    db = get_db()
+    if db.execute("SELECT 1 FROM games WHERE id = ?", (game_id,)).fetchone() is None:
+        abort(404)
+    put_on_shelf(db, g.user["id"], game_id, shelf)
+    db.commit()
+    flash(f"Added to {SHELVES[shelf]}." if shelf else "Removed from your shelves.")
+    return redirect(url_for("game", game_id=game_id))
 
 
 @app.route("/entry/<int:entry_id>/delete", methods=["POST"])

@@ -1,0 +1,25 @@
+{% extends "base.html" %}
+{% from "tiles.html" import tile %}
+{% block title %}{{ name }} - {{ person.username }} - Gametrackr{% endblock %}
+
+{% block body %}
+  <p class="meta"><a href="{{ url_for('profile', username=person.username) }}">&larr; {{ person.username }}</a></p>
+  <h1>{{ name }}</h1>
+  <p class="muted">
+    {% if limit and total > limit %}
+      Top {{ limit }} of {{ total }} rated games
+    {% else %}
+      {{ total }} game{{ "" if total == 1 else "s" }}
+    {% endif %}
+  </p>
+
+  {% if games %}
+    <div class="grid">
+      {% for game in games %}
+        {{ tile(url_for('game', game_id=game.game_id), game.title, game.cover_id, game.rating, lazy=loop.index > 24) }}
+      {% endfor %}
+    </div>
+  {% else %}
+    <p class="muted">Nothing here yet.</p>
+  {% endif %}
+{% endblock %}
