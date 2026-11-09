@@ -1,0 +1,32 @@
+{% extends "base.html" %}
+{% from "follow.html" import follow_button with context %}
+{% block title %}{{ title }} - {{ person.username }} - Gametrackr{% endblock %}
+
+{% block body %}
+  <p class="meta"><a href="{{ url_for('profile', username=person.username) }}">&larr; {{ person.username }}</a></p>
+  <h1>{{ title }}</h1>
+  <p class="muted">{{ total }} {{ "person" if total == 1 else "people" }}</p>
+
+  {% for p in people %}
+    <div class="row">
+      {{ avatar(p, 44) }}
+      <div class="main">
+        <a href="{{ url_for('profile', username=p.username) }}">{{ p.username }}</a>
+        <span class="sub">{{ p.rated }} game{{ "" if p.rated == 1 else "s" }} rated</span>
+      </div>
+      {% if user and user.id != p.id %}
+        {{ follow_button(p.username, p.id in following_ids, next_url, small=True) }}
+      {% endif %}
+    </div>
+  {% else %}
+    <p class="muted">{{ empty }}</p>
+  {% endfor %}
+
+  {% if pages > 1 %}
+    <div class="pager">
+      {% if page > 1 %}<a href="{{ url_for(endpoint, username=person.username, page=page - 1) }}">&larr; Previous</a>{% endif %}
+      <span class="muted">Page {{ page }} of {{ pages }}</span>
+      {% if page < pages %}<a href="{{ url_for(endpoint, username=person.username, page=page + 1) }}">Next &rarr;</a>{% endif %}
+    </div>
+  {% endif %}
+{% endblock %}

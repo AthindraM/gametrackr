@@ -5,7 +5,13 @@
   <h1>{% if q %}Results for &ldquo;{{ q }}&rdquo;{% else %}Search games{% endif %}</h1>
 
   {% if results %}
-    <p class="muted">Best matches first</p>
+    <div class="sortbar">
+      <span class="muted">Sort by</span>
+      {% for key, label in sorts.items() %}
+        <a href="{{ url_for('search', q=q, sort=key) }}"
+           class="{{ 'active' if key == sort }}"{% if key == sort %} aria-current="true"{% endif %}>{{ label }}</a>
+      {% endfor %}
+    </div>
     {% for r in results %}
       {# Games not on Gametrackr yet (id is None) are created from IGDB when opened. #}
       {% set rating = r.avg if r.n else None %}

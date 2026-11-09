@@ -39,3 +39,9 @@ for _i, _name in enumerate(ICON_FILES):
 @app.errorhandler(404)
 def error_page(err):
     return render_template("error.html", err=err), err.code
+
+
+@app.errorhandler(413)
+def too_large(err):
+    err.description = "That file is too large. Profile pictures can be up to 5 MB."
+    return render_template("error.html", err=err), 413

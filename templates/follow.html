@@ -1,0 +1,16 @@
+{# Follow / Unfollow button. Import with: {% from "follow.html" import follow_button with context %}
+   `next` is the page to come back to afterwards. #}
+{% macro follow_button(username, following, next=None, small=False) -%}
+  <form class="inline" method="post"
+        action="{{ url_for('unfollow_user' if following else 'follow_user', username=username) }}">
+    <input type="hidden" name="csrf" value="{{ csrf_token }}">
+    {% if next %}<input type="hidden" name="next" value="{{ next }}">{% endif %}
+    {% if following %}
+      <button class="btn ghost following{{ ' small' if small }}">
+        <span class="on">Following</span><span class="off">Unfollow</span>
+      </button>
+    {% else %}
+      <button class="btn{{ ' small' if small }}">Follow</button>
+    {% endif %}
+  </form>
+{%- endmacro %}

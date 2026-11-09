@@ -11,7 +11,26 @@
     </nav>
 
     <div>
-      {% if section == "connections" %}
+      {% if section == "profile" %}
+        <h2 class="first">Profile picture</h2>
+        <div class="avatar-edit">
+          {{ avatar(user, 96) }}
+          <div>
+            <form method="post" action="{{ url_for('upload_avatar') }}" enctype="multipart/form-data">
+              <input type="hidden" name="csrf" value="{{ csrf_token }}">
+              <input type="file" name="avatar" accept="image/png,image/jpeg,image/webp,image/gif" required>
+              <button>{{ "Change picture" if user.avatar_v else "Upload picture" }}</button>
+            </form>
+            {% if user.avatar_v %}
+              <form class="inline" method="post" action="{{ url_for('remove_avatar') }}">
+                <input type="hidden" name="csrf" value="{{ csrf_token }}">
+                <button class="link">Remove picture</button>
+              </form>
+            {% endif %}
+            <p class="hint">PNG, JPEG, WebP, or GIF up to 5 MB. It's cropped to a square.</p>
+          </div>
+        </div>
+      {% elif section == "connections" %}
         <h2 class="first">Steam</h2>
 
         {% if user.steam_id %}

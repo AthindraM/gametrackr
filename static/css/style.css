@@ -190,6 +190,9 @@ form.inline {
   position: relative;
 }
 .menu summary {
+  display: flex;
+  align-items: center;
+  gap: 8px;
   list-style: none;
   cursor: pointer;
   padding: 6px 0;
@@ -616,4 +619,134 @@ select:focus {
   display: block;
   font-size: 0.85rem;
   color: var(--muted);
+}
+
+/* Sort options above search results */
+.sortbar {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  flex-wrap: wrap;
+  margin: 0 0 8px;
+}
+.sortbar a {
+  padding: 4px 12px;
+  border: 1px solid var(--line);
+  border-radius: 999px;
+  color: var(--muted);
+  font-size: 0.85rem;
+  text-decoration: none;
+}
+.sortbar a:hover {
+  color: var(--text);
+}
+.sortbar a.active {
+  background: var(--surface);
+  border-color: var(--accent);
+  color: var(--text);
+}
+
+/* Profile pictures */
+.avatar {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  flex: none;
+  border-radius: 50%;
+  object-fit: cover;
+  color: #fff;
+  font-weight: 700;
+  background: var(--surface);
+  vertical-align: middle;
+}
+.row .main .avatar {
+  margin-right: 6px;
+}
+.avatar-edit {
+  display: flex;
+  align-items: center;
+  gap: 24px;
+  flex-wrap: wrap;
+}
+.avatar-edit form {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  flex-wrap: wrap;
+  margin: 0 0 10px;
+}
+.avatar-edit input[type="file"] {
+  width: auto;
+  max-width: 100%;
+}
+
+/* Profile header: picture, name and stats, follow button */
+.profile-head {
+  display: flex;
+  align-items: center;
+  gap: 20px;
+  flex-wrap: wrap;
+}
+.profile-head .who {
+  flex: 1;
+  min-width: 200px;
+}
+.profile-head h1 {
+  margin: 0 0 6px;
+}
+.profile-head p {
+  margin: 0 0 6px;
+}
+.counts {
+  display: flex;
+  gap: 18px;
+}
+.counts a {
+  color: var(--muted);
+  text-decoration: none;
+}
+.counts a:hover {
+  color: var(--text);
+}
+.counts strong {
+  color: var(--text);
+}
+.profile-actions {
+  align-self: flex-start;
+}
+
+/* Buttons used by follow controls */
+.btn.ghost {
+  background: transparent;
+  border: 1px solid var(--line);
+  color: var(--text);
+}
+.btn.ghost:hover {
+  background: var(--surface);
+  color: var(--text);
+}
+.btn.small {
+  padding: 6px 14px;
+  font-size: 0.85rem;
+}
+.btn.following .off {
+  display: none;
+}
+.btn.following:hover .on {
+  display: none;
+}
+.btn.following:hover .off {
+  display: inline;
+}
+.btn.following:hover {
+  border-color: #f0623b;
+  color: #f0623b;
+}
+
+/* Page links under long lists */
+.pager {
+  display: flex;
+  align-items: center;
+  gap: 16px;
+  margin-top: 20px;
 }

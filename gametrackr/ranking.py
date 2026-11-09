@@ -78,3 +78,21 @@ def rank(query, results):
             r["title"].lower(),
         ),
     )
+
+
+# Ways to order the search results page (the first is the default).
+SORTS = {
+    "relevance": "Relevance",
+    "newest": "Release date: newest first",
+    "oldest": "Release date: oldest first",
+}
+
+
+def sort_results(results, sort):
+    """Reorder ranked results by release date. Games with no known date go last,
+    and games from the same year keep their relevance order."""
+    if sort == "newest":
+        return sorted(results, key=lambda r: (r["year"] is None, -(r["year"] or 0)))
+    if sort == "oldest":
+        return sorted(results, key=lambda r: (r["year"] is None, r["year"] or 0))
+    return results

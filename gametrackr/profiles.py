@@ -5,6 +5,8 @@ from flask import abort, g, render_template
 from . import app
 from .catalog import enrich_game
 from .db import get_db
+from .follows import follower_counts, is_following
+from .helpers import find_person
 from .igdb import igdb_configured
 from .shelves import (
     PREVIEW_COUNT,
@@ -14,15 +16,6 @@ from .shelves import (
     shelf_games,
     shelf_total,
 )
-
-
-def find_person(db, username):
-    person = db.execute(
-        "SELECT id, username, created_at FROM users WHERE username = ?", (username,)
-    ).fetchone()
-    if person is None:
-        abort(404)
-    return person
 
 
 @app.route("/u/<username>")
@@ -58,12 +51,16 @@ def profile(username):
         }
         for key, name in PROFILE_SHELVES
     ]
+    followers, following = follower_counts(db, uid)
     return render_template(
         "profile.html",
         person=person,
         rated=stats["n"],
         avg=stats["avg"],
         shelves=shelves,
+        followers=followers,
+        following=following,
+        viewer_follows=bool(g.user) and is_following(db, g.user["id"], uid),
     )
 
 

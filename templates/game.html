@@ -46,6 +46,7 @@
   {% for e in entries %}
     <div class="row">
       <div class="main">
+        {{ avatar(e, 22) }}
         <a href="{{ url_for('profile', username=e.username) }}">{{ e.username }}</a>
         <span class="meta">{{ e.updated_at|day }}</span>
         {% if e.review %}<p class="review">{{ e.review }}</p>{% endif %}

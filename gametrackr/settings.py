@@ -1,4 +1,4 @@
-"""Settings pages (currently just Connections)."""
+"""Settings pages: Profile (picture) and Connections (Steam)."""
 
 import os
 
@@ -8,7 +8,7 @@ from . import app
 from .db import get_db
 from .helpers import login_required
 
-SETTINGS_SECTIONS = [("connections", "Connections")]
+SETTINGS_SECTIONS = [("profile", "Profile"), ("connections", "Connections")]
 
 
 @app.route("/settings")

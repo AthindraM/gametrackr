@@ -1,13 +1,32 @@
 {% extends "base.html" %}
 {% from "tiles.html" import tile %}
+{% from "follow.html" import follow_button with context %}
 {% block title %}{{ person.username }} - Gametrackr{% endblock %}
 
 {% block body %}
-  <h1>{{ person.username }}</h1>
-  <p class="muted">
-    {{ rated }} game{{ "" if rated == 1 else "s" }} rated{% if avg %}, average {{ avg|score }}{% endif %}.
-    Member since {{ person.created_at|day }}.
-  </p>
+  <div class="profile-head">
+    {{ avatar(person, 96) }}
+    <div class="who">
+      <h1>{{ person.username }}</h1>
+      <p class="muted">
+        {{ rated }} game{{ "" if rated == 1 else "s" }} rated{% if avg %}, average {{ avg|score }}{% endif %}.
+        Member since {{ person.created_at|day }}.
+      </p>
+      <p class="counts">
+        <a href="{{ url_for('followers_page', username=person.username) }}"><strong>{{ followers }}</strong> follower{{ "" if followers == 1 else "s" }}</a>
+        <a href="{{ url_for('following_page', username=person.username) }}"><strong>{{ following }}</strong> following</a>
+      </p>
+    </div>
+    <div class="profile-actions">
+      {% if not user %}
+        <a class="btn" href="{{ url_for('login') }}">Follow</a>
+      {% elif user.id == person.id %}
+        <a class="btn ghost" href="{{ url_for('settings', section='profile') }}">Edit profile</a>
+      {% else %}
+        {{ follow_button(person.username, viewer_follows) }}
+      {% endif %}
+    </div>
+  </div>
 
   {# Top Rated, Currently Playing, Wishlist, Completed, Library: one row of up to 4 each. #}
   {% for shelf in shelves %}

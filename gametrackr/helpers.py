@@ -18,7 +18,8 @@ def load_user_and_check_csrf():
         g.user = (
             get_db()
             .execute(
-                "SELECT id, username, email, steam_id FROM users WHERE id = ?", (uid,)
+                "SELECT id, username, email, steam_id, avatar_v FROM users WHERE id = ?",
+                (uid,),
             )
             .fetchone()
         )
@@ -96,3 +97,14 @@ def asset(path):
     except OSError:
         version = 0
     return url_for("static", filename=path, v=version)
+
+
+def find_person(db, username):
+    """The user with this username (id, username, created_at, avatar_v), or a 404."""
+    person = db.execute(
+        "SELECT id, username, created_at, avatar_v FROM users WHERE username = ?",
+        (username,),
+    ).fetchone()
+    if person is None:
+        abort(404)
+    return person

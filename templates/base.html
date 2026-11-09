@@ -29,7 +29,7 @@
         {% if user %}
           <a href="{{ url_for('add') }}">Add game</a>
           <details class="menu">
-            <summary>{{ user.username }}</summary>
+            <summary>{{ avatar(user, 26) }}<span>{{ user.username }}</span></summary>
             <div class="pop">
               <a href="{{ url_for('profile', username=user.username) }}">Profile</a>
               <a href="{{ url_for('settings_index') }}">Settings</a>

@@ -7,6 +7,7 @@ from .catalog import enrich_game, ensure_game_from_igdb, search_results
 from .db import get_db
 from .helpers import login_required
 from .igdb import IgdbError, cover_url, igdb_configured, igdb_get
+from .ranking import SORTS, sort_results
 from .shelves import SHELVES, get_shelf, put_on_shelf
 from .text import norm_title
 
@@ -52,8 +53,12 @@ def suggest_games():
 @app.route("/search")
 def search():
     q = " ".join(request.args.get("q", "").split())[:100]
-    results = search_results(q, 50, 30)[:40] if q else []
-    return render_template("search.html", q=q, results=results)
+    sort = request.args.get("sort", "relevance")
+    if sort not in SORTS:
+        sort = "relevance"
+    # Keep the 40 best matches, then order them; sorting by date never pulls in poor matches.
+    results = sort_results(search_results(q, 50, 30)[:40], sort) if q else []
+    return render_template("search.html", q=q, results=results, sort=sort, sorts=SORTS)
 
 
 @app.route("/game/igdb/<int:igdb_id>")
@@ -200,7 +205,7 @@ def game(game_id):
     if row is None:
         abort(404)
     entries = db.execute(
-        """SELECT e.*, u.username FROM entries e
+        """SELECT e.*, u.username, u.avatar_v FROM entries e
            JOIN users u ON u.id = e.user_id
            WHERE e.game_id = ? ORDER BY e.updated_at DESC, e.id DESC""",
         (game_id,),

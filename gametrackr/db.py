@@ -14,6 +14,7 @@ CREATE TABLE IF NOT EXISTS users (
     username TEXT NOT NULL UNIQUE COLLATE NOCASE,
     password_hash TEXT NOT NULL,
     steam_id TEXT,
+    avatar_v INTEGER,
     created_at TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP
 );
 CREATE TABLE IF NOT EXISTS games (
@@ -48,6 +49,18 @@ CREATE TABLE IF NOT EXISTS shelf_items (
     added_at TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP,
     PRIMARY KEY (user_id, game_id)
 );
+CREATE TABLE IF NOT EXISTS avatars (
+    user_id INTEGER PRIMARY KEY REFERENCES users(id) ON DELETE CASCADE,
+    data BLOB NOT NULL
+);
+CREATE TABLE IF NOT EXISTS follows (
+    follower_id INTEGER NOT NULL REFERENCES users(id) ON DELETE CASCADE,
+    followee_id INTEGER NOT NULL REFERENCES users(id) ON DELETE CASCADE,
+    created_at TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP,
+    PRIMARY KEY (follower_id, followee_id),
+    CHECK (follower_id != followee_id)
+);
+CREATE INDEX IF NOT EXISTS idx_follows_followee ON follows(followee_id);
 """
 
 
@@ -71,6 +84,8 @@ def init_db():
         cols = [r[1] for r in db.execute("PRAGMA table_info(users)")]
         if "steam_id" not in cols:  # upgrade databases created before Steam support
             db.execute("ALTER TABLE users ADD COLUMN steam_id TEXT")
+        if "avatar_v" not in cols:  # upgrade databases created before profile pictures
+            db.execute("ALTER TABLE users ADD COLUMN avatar_v INTEGER")
         db.execute(
             "CREATE UNIQUE INDEX IF NOT EXISTS idx_users_steam ON users(steam_id)"
         )
