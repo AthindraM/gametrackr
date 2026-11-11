@@ -1,0 +1,5 @@
+{# The Home / Following tabs. Set `tab` to "home" or "following". #}
+<nav class="hometabs" aria-label="Home sections">
+  <a href="{{ url_for('home') }}" class="{{ 'active' if tab == 'home' }}"{% if tab == 'home' %} aria-current="page"{% endif %}>Home</a>
+  <a href="{{ url_for('following_feed') }}" class="{{ 'active' if tab == 'following' }}"{% if tab == 'following' %} aria-current="page"{% endif %}>Following</a>
+</nav>

@@ -13,7 +13,7 @@
     <link rel="stylesheet" href="{{ asset('css/style.css') }}">
     <script src="{{ asset('js/covers.js') }}"></script>
   </head>
-  <body>
+  <body class="{% block page_class %}{% endblock %}"{% if needs_tz %} data-needs-tz{% endif %}>
     <header>
       <div class="bar">
         <a class="logo" href="{{ url_for('home') }}">Game<span>trackr</span></a>

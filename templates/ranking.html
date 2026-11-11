@@ -1,0 +1,24 @@
+{% extends "base.html" %}
+{% block title %}{{ title }} - Gametrackr{% endblock %}
+
+{% block body %}
+  {% if back %}
+    <p class="meta"><a href="{{ back.url }}">&larr; {{ back.label }}</a></p>
+  {% endif %}
+  <h1>{{ title }}</h1>
+  <p class="muted">{{ subtitle }}</p>
+
+  {% for r in rows %}
+    <div class="row">
+      <span class="rank-no">{{ r.rank }}</span>
+      {{ cover_img(r.cover_id) }}
+      <div class="main">
+        <a href="{{ r.href }}">{{ r.title }}</a>
+        {% if r.sub %}<span class="sub">{{ r.sub }}</span>{% endif %}
+      </div>
+      <span class="badge {{ r.rating|tier }}">{{ r.rating|badge }}</span>
+    </div>
+  {% else %}
+    <p class="muted">Nothing here yet.</p>
+  {% endfor %}
+{% endblock %}

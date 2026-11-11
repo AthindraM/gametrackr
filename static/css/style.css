@@ -750,3 +750,69 @@ select:focus {
   gap: 16px;
   margin-top: 20px;
 }
+
+/* Home tabs (Home / Following) and the Following feed */
+.hometabs {
+  display: flex;
+  gap: 4px;
+  margin: 0 0 8px;
+  border-bottom: 1px solid var(--line);
+}
+.hometabs a {
+  margin-bottom: -1px;
+  padding: 10px 16px;
+  border-bottom: 2px solid transparent;
+  color: var(--muted);
+  text-decoration: none;
+}
+.hometabs a:hover {
+  color: var(--text);
+}
+.hometabs a.active {
+  border-bottom-color: var(--accent);
+  color: var(--text);
+}
+.hometabs + .shelf .shelf-head {
+  margin-top: 20px;
+}
+h2.day {
+  margin: 28px 0 4px;
+  font-size: 0.95rem;
+  color: var(--text);
+}
+.hometabs + h2.day {
+  margin-top: 20px;
+}
+
+/* Ranking pages: a numbered list */
+.rank-no {
+  flex: none;
+  width: 2.4em;
+  color: var(--muted);
+  font-variant-numeric: tabular-nums;
+  font-weight: 700;
+  text-align: right;
+}
+
+/* Profile page: shelves on the left, Recent Activity on the right */
+.profile-layout {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) 280px;
+  gap: 32px;
+  align-items: start;
+}
+.side .row {
+  padding: 10px 0;
+}
+@media (min-width: 1181px) {
+  /* wider page (header too) so the shelf tiles keep their size next to the column */
+  .wide .bar,
+  .wide main {
+    max-width: 1264px;
+  }
+}
+@media (max-width: 1180px) {
+  .profile-layout {
+    grid-template-columns: 1fr;
+  }
+}

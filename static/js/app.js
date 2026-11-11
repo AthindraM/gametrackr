@@ -125,3 +125,20 @@ document.querySelectorAll("select[data-autosubmit]").forEach(function (select) {
     select.form.submit();
   });
 });
+
+// Remember the browser's time zone so "Today" and "Yesterday" match the reader's own day.
+(function () {
+  try {
+    var zone = Intl.DateTimeFormat().resolvedOptions().timeZone;
+    if (!zone || document.cookie.indexOf("tz=" + zone) !== -1) return;
+    document.cookie = "tz=" + zone + "; path=/; max-age=31536000; SameSite=Lax";
+    // A page that was drawn without knowing the zone is drawn again once, now that it's known.
+    if (
+      document.body.hasAttribute("data-needs-tz") &&
+      !sessionStorage.getItem("tzReloaded")
+    ) {
+      sessionStorage.setItem("tzReloaded", "1");
+      location.reload();
+    }
+  } catch (e) {}
+})();

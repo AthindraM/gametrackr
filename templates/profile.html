@@ -1,6 +1,9 @@
 {% extends "base.html" %}
 {% from "tiles.html" import tile %}
 {% from "follow.html" import follow_button with context %}
+{% from "activity.html" import side_item with context %}
+{# The profile page is wider so the Recent Activity column fits beside the shelves. #}
+{% block page_class %}wide{% endblock %}
 {% block title %}{{ person.username }} - Gametrackr{% endblock %}
 
 {% block body %}
@@ -28,25 +31,38 @@
     </div>
   </div>
 
-  {# Top Rated, Currently Playing, Wishlist, Completed, Library: one row of up to 4 each. #}
-  {% for shelf in shelves %}
-    <section class="shelf">
-      <div class="shelf-head">
-        <h2>{{ shelf.name }}</h2>
-        {% if shelf.total %}
-          <a class="viewall" href="{{ url_for('shelf_page', username=person.username, key=shelf.key) }}">View all</a>
-        {% endif %}
-      </div>
-
-      {% if shelf.games %}
-        <div class="shelf-row">
-          {% for game in shelf.games %}
-            {{ tile(url_for('game', game_id=game.game_id), game.title, game.cover_id, game.rating) }}
-          {% endfor %}
+  <div class="profile-layout">
+    <div class="profile-main">
+    {# Top Rated, Currently Playing, Wishlist, Completed, Library: one row of up to 5 each. #}
+    {% for shelf in shelves %}
+      <section class="shelf">
+        <div class="shelf-head">
+          <h2>{{ shelf.name }}</h2>
+          {% if shelf.total %}
+            <a class="viewall" href="{{ url_for('shelf_page', username=person.username, key=shelf.key) }}">View all</a>
+          {% endif %}
         </div>
+
+        {% if shelf.games %}
+          <div class="shelf-row">
+            {% for game in shelf.games %}
+              {{ tile(url_for('game', game_id=game.game_id), game.title, game.cover_id, game.rating) }}
+            {% endfor %}
+          </div>
+        {% else %}
+          <p class="muted">{{ "No rated games yet." if shelf.key == "top-rated" else "Nothing here yet." }}</p>
+        {% endif %}
+      </section>
+    {% endfor %}
+    </div>
+
+    <aside class="side">
+      <div class="shelf-head"><h2>Recent Activity</h2></div>
+      {% for e in activity %}
+        {{ side_item(e) }}
       {% else %}
-        <p class="muted">{{ "No rated games yet." if shelf.key == "top-rated" else "Nothing here yet." }}</p>
-      {% endif %}
-    </section>
-  {% endfor %}
+        <p class="muted">No activity yet.</p>
+      {% endfor %}
+    </aside>
+  </div>
 {% endblock %}

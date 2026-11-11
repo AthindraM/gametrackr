@@ -1,0 +1,36 @@
+{# Activity items. Import with: {% from "activity.html" import feed_item, side_item with context %} #}
+
+{# One update in the Following feed: "alice rated Hades" #}
+{% macro feed_item(e) -%}
+  <div class="row">
+    {{ cover_img(e.cover_id) }}
+    <div class="main">
+      {{ avatar(e, 22) }}
+      <a href="{{ url_for('profile', username=e.username) }}">{{ e.username }}</a>
+      {{ e.verb }}
+      <a href="{{ url_for('game', game_id=e.game_id) }}">{{ e.title }}</a>
+      <span class="sub">{{ e.time }}</span>
+      {% if e.review %}
+        <p class="review muted">{{ e.review[:240] }}{% if e.review|length > 240 %}&hellip;{% endif %}</p>
+      {% endif %}
+    </div>
+    {% if e.kind == "rating" %}
+      <span class="badge {{ e.rating|tier }}">{{ e.rating|badge }}</span>
+    {% endif %}
+  </div>
+{%- endmacro %}
+
+{# One line in a profile's Recent Activity column: "Rated Hades" #}
+{% macro side_item(e) -%}
+  <div class="row">
+    {{ cover_img(e.cover_id) }}
+    <div class="main">
+      {{ e.own_verb }}
+      <a href="{{ url_for('game', game_id=e.game_id) }}">{{ e.title }}</a>
+      <span class="sub">{{ e.short_day }}</span>
+    </div>
+    {% if e.kind == "rating" %}
+      <span class="badge {{ e.rating|tier }}">{{ e.rating|badge }}</span>
+    {% endif %}
+  </div>
+{%- endmacro %}

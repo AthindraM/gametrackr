@@ -1,8 +1,15 @@
 """Profile pages: shelves of games, and the "View all" page for each shelf."""
 
-from flask import abort, g, render_template
+from flask import abort, g, render_template, url_for
 
 from . import app
+from .activity import (
+    ONE_USER,
+    PROFILE_ACTIVITY_COUNT,
+    browser_timezone,
+    decorate,
+    fetch,
+)
 from .catalog import enrich_game
 from .db import get_db
 from .follows import follower_counts, is_following
@@ -52,8 +59,12 @@ def profile(username):
         for key, name in PROFILE_SHELVES
     ]
     followers, following = follower_counts(db, uid)
+    tz, known_zone = browser_timezone()
+    activity = decorate(fetch(db, ONE_USER, [uid], PROFILE_ACTIVITY_COUNT), tz)
     return render_template(
         "profile.html",
+        activity=activity,
+        needs_tz=not known_zone,
         person=person,
         rated=stats["n"],
         avg=stats["avg"],
@@ -71,11 +82,39 @@ def shelf_page(username, key):
     db = get_db()
     person = find_person(db, username)
     limit = TOP_RATED_PAGE_LIMIT if key == "top-rated" else None
+    games = shelf_games(db, person["id"], key, limit)
+    total = shelf_total(db, person["id"], key)
+    if key == "top-rated":  # the ranking: a numbered list, best first
+        rows = [
+            {
+                "rank": rank,
+                "href": url_for("game", game_id=game["game_id"]),
+                "title": game["title"],
+                "cover_id": game["cover_id"],
+                "rating": game["rating"],
+                "sub": None,
+            }
+            for rank, game in enumerate(games, 1)
+        ]
+        shown = (
+            f"Top {limit} of {total} rated games"
+            if total > limit
+            else f"{total} rated games"
+        )
+        return render_template(
+            "ranking.html",
+            title=f"{person['username']}'s Top Rated",
+            subtitle=shown,
+            back={
+                "url": url_for("profile", username=person["username"]),
+                "label": person["username"],
+            },
+            rows=rows,
+        )
     return render_template(
         "shelf.html",
         person=person,
         name=PROFILE_SHELF_NAMES[key],
-        games=shelf_games(db, person["id"], key, limit),
-        total=shelf_total(db, person["id"], key),
-        limit=limit,
+        games=games,
+        total=total,
     )

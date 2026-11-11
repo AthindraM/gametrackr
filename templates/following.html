@@ -1,0 +1,30 @@
+{% extends "base.html" %}
+{% from "activity.html" import feed_item with context %}
+{% block title %}Following - Gametrackr{% endblock %}
+
+{% block body %}
+  {% include "home_tabs.html" %}
+
+  {% if not following %}
+    <p class="muted">
+      You're not following anyone yet. Follow people from their profiles to see what they rate and play here.
+    </p>
+  {% elif not sections %}
+    <p class="muted">Nothing new from the people you follow yet.</p>
+  {% else %}
+    {% for section in sections %}
+      <h2 class="day">{{ section.label }}</h2>
+      {% for e in section.events %}
+        {{ feed_item(e) }}
+      {% endfor %}
+    {% endfor %}
+
+    {% if pages > 1 %}
+      <div class="pager">
+        {% if page > 1 %}<a href="{{ url_for('following_feed', page=page - 1) }}">&larr; Newer</a>{% endif %}
+        <span class="muted">Page {{ page }} of {{ pages }}</span>
+        {% if page < pages %}<a href="{{ url_for('following_feed', page=page + 1) }}">Older &rarr;</a>{% endif %}
+      </div>
+    {% endif %}
+  {% endif %}
+{% endblock %}

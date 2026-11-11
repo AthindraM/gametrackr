@@ -37,6 +37,7 @@ from . import (
     follows,
     games,
     helpers,
+    home,
     misc,
     profiles,
     settings,

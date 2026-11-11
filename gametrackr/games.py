@@ -12,23 +12,6 @@ from .shelves import SHELVES, get_shelf, put_on_shelf
 from .text import norm_title
 
 
-@app.route("/")
-def home():
-    if g.user is None:
-        return render_template("landing.html")
-    db = get_db()
-    recent = db.execute("""SELECT e.*, u.username, g.title, g.cover_id FROM entries e
-           JOIN users u ON u.id = e.user_id
-           JOIN games g ON g.id = e.game_id
-           ORDER BY e.updated_at DESC, e.id DESC LIMIT 20""").fetchall()
-    top = db.execute(
-        """SELECT g.id, g.title, g.cover_id, AVG(e.rating) AS avg, COUNT(*) AS n
-           FROM games g JOIN entries e ON e.game_id = g.id
-           GROUP BY g.id ORDER BY avg DESC, n DESC LIMIT 12"""
-    ).fetchall()
-    return render_template("home.html", recent=recent, top=top)
-
-
 @app.route("/api/games/suggest")
 def suggest_games():
     q = " ".join(request.args.get("q", "").split())[:100]
