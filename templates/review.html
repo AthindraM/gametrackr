@@ -1,0 +1,62 @@
+{% extends "base.html" %}
+{% from "reactions.html" import reaction_bar with context %}
+{% block title %}{{ review.username }}'s review of {{ review.title }} - Gametrackr{% endblock %}
+
+{% block body %}
+  <div class="review-page">
+    <p class="meta"><a href="{{ url_for('game', game_id=review.game_id) }}">&larr; {{ review.title }}</a></p>
+
+    <div class="review-head">
+      {{ avatar(review, 44) }}
+      <div class="who">
+        <a href="{{ url_for('profile', username=review.username) }}">{{ review.username }}</a>
+        reviewed <a href="{{ url_for('game', game_id=review.game_id) }}">{{ review.title }}</a>
+        <span class="sub">{{ review.updated_at|day }}</span>
+      </div>
+      <span class="badge {{ review.rating|tier }}">{{ review.rating|badge }}</span>
+    </div>
+    <p class="review review-body">{{ review.review }}</p>
+    {{ reaction_bar(review, back_url, False) }}
+
+    <h2 id="comments">Comments ({{ review.comments }})</h2>
+
+    {% if user %}
+      <form class="comment-form" method="post" action="{{ url_for('add_comment', entry_id=review.id) }}">
+        <input type="hidden" name="csrf" value="{{ csrf_token }}">
+        <textarea name="body" maxlength="1000" placeholder="Add a comment" aria-label="Add a comment" required></textarea>
+        <div><button>Post comment</button></div>
+      </form>
+    {% else %}
+      <p class="muted"><a href="{{ url_for('login') }}">Log in</a> to comment.</p>
+    {% endif %}
+
+    {% for c in comments %}
+      <div class="comment" id="comment-{{ c.id }}">
+        {{ avatar(c, 36) }}
+        <div class="main">
+          <a href="{{ url_for('profile', username=c.username) }}">{{ c.username }}</a>
+          <span class="meta">{{ c.when }}</span>
+          <p class="body">{{ c.body }}</p>
+        </div>
+        {% if user and (user.id == c.user_id or user.id == review.user_id) %}
+          <form class="inline" method="post" action="{{ url_for('delete_comment', comment_id=c.id) }}"
+                onsubmit="return confirm('Delete this comment?')">
+            <input type="hidden" name="csrf" value="{{ csrf_token }}">
+            <input type="hidden" name="next" value="{{ back_url }}">
+            <button class="link">Delete</button>
+          </form>
+        {% endif %}
+      </div>
+    {% else %}
+      <p class="muted">No comments yet.</p>
+    {% endfor %}
+
+    {% if pages > 1 %}
+      <div class="pager">
+        {% if page > 1 %}<a href="{{ url_for('review_page', entry_id=review.id, page=page - 1) }}">&larr; Earlier</a>{% endif %}
+        <span class="muted">Page {{ page }} of {{ pages }}</span>
+        {% if page < pages %}<a href="{{ url_for('review_page', entry_id=review.id, page=page + 1) }}">Later &rarr;</a>{% endif %}
+      </div>
+    {% endif %}
+  </div>
+{% endblock %}

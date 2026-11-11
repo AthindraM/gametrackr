@@ -1,0 +1,27 @@
+{# Like / Dislike buttons and the comment count for a review.
+   Import with: {% from "reactions.html" import reaction_bar with context %}
+   `e` needs id, user_id, likes, dislikes, comments, my_reaction.
+   `back` is the page (with #anchor) to return to after pressing a button. #}
+{% macro reaction_bar(e, back, show_comments=True) -%}
+  <div class="reactions">
+    {% if not user %}
+      <a class="react-btn" href="{{ url_for('login') }}">Like <span>{{ e.likes }}</span></a>
+      <a class="react-btn" href="{{ url_for('login') }}">Dislike <span>{{ e.dislikes }}</span></a>
+    {% elif user.id == e.user_id %}
+      <span class="react-btn static">Like <span>{{ e.likes }}</span></span>
+      <span class="react-btn static">Dislike <span>{{ e.dislikes }}</span></span>
+    {% else %}
+      <form method="post" action="{{ url_for('react_to_review', entry_id=e.id) }}">
+        <input type="hidden" name="csrf" value="{{ csrf_token }}">
+        <input type="hidden" name="next" value="{{ back }}">
+        <button name="value" value="like" class="react-btn like{{ ' on' if e.my_reaction == 1 }}"
+                aria-pressed="{{ 'true' if e.my_reaction == 1 else 'false' }}">Like <span>{{ e.likes }}</span></button>
+        <button name="value" value="dislike" class="react-btn dislike{{ ' on' if e.my_reaction == -1 }}"
+                aria-pressed="{{ 'true' if e.my_reaction == -1 else 'false' }}">Dislike <span>{{ e.dislikes }}</span></button>
+      </form>
+    {% endif %}
+    {% if show_comments %}
+      <a class="react-link" href="{{ url_for('review_page', entry_id=e.id) }}">{{ e.comments }} comment{{ "" if e.comments == 1 else "s" }}</a>
+    {% endif %}
+  </div>
+{%- endmacro %}

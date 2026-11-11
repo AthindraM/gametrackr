@@ -1,4 +1,5 @@
 {% extends "base.html" %}
+{% from "reactions.html" import reaction_bar with context %}
 {% block title %}{{ game.title }} - Gametrackr{% endblock %}
 
 {% block body %}
@@ -33,7 +34,7 @@
         {% endif %}
         {% if mine %}
           <form class="inline" method="post" action="{{ url_for('delete_entry', entry_id=mine.id) }}"
-                onsubmit="return confirm('Remove your rating for this game?')">
+                onsubmit="return confirm('Remove your rating for this game?{{ ' This also deletes your review and its comments.' if mine.review }}')">
             <input type="hidden" name="csrf" value="{{ csrf_token }}">
             <button class="link">Remove my rating</button>
           </form>
@@ -44,12 +45,15 @@
 
   <h2>Reviews</h2>
   {% for e in entries %}
-    <div class="row">
+    <div class="row" id="review-{{ e.id }}">
       <div class="main">
         {{ avatar(e, 22) }}
         <a href="{{ url_for('profile', username=e.username) }}">{{ e.username }}</a>
         <span class="meta">{{ e.updated_at|day }}</span>
-        {% if e.review %}<p class="review">{{ e.review }}</p>{% endif %}
+        {% if e.review %}
+          <p class="review">{{ e.review }}</p>
+          {{ reaction_bar(e, url_for('game', game_id=game.id) ~ '#review-' ~ e.id) }}
+        {% endif %}
       </div>
       <span class="score">{{ e.rating|score }}</span>
     </div>

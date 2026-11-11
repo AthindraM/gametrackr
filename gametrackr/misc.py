@@ -41,6 +41,12 @@ def error_page(err):
     return render_template("error.html", err=err), err.code
 
 
+@app.errorhandler(403)
+def forbidden(err):
+    err.description = "You can't do that."
+    return render_template("error.html", err=err), 403
+
+
 @app.errorhandler(413)
 def too_large(err):
     err.description = "That file is too large. Profile pictures can be up to 5 MB."

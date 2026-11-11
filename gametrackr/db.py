@@ -61,6 +61,21 @@ CREATE TABLE IF NOT EXISTS follows (
     CHECK (follower_id != followee_id)
 );
 CREATE INDEX IF NOT EXISTS idx_follows_followee ON follows(followee_id);
+CREATE TABLE IF NOT EXISTS review_reactions (
+    entry_id INTEGER NOT NULL REFERENCES entries(id) ON DELETE CASCADE,
+    user_id INTEGER NOT NULL REFERENCES users(id) ON DELETE CASCADE,
+    value INTEGER NOT NULL CHECK (value IN (1, -1)),
+    created_at TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP,
+    PRIMARY KEY (entry_id, user_id)
+);
+CREATE TABLE IF NOT EXISTS review_comments (
+    id INTEGER PRIMARY KEY AUTOINCREMENT,
+    entry_id INTEGER NOT NULL REFERENCES entries(id) ON DELETE CASCADE,
+    user_id INTEGER NOT NULL REFERENCES users(id) ON DELETE CASCADE,
+    body TEXT NOT NULL,
+    created_at TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP
+);
+CREATE INDEX IF NOT EXISTS idx_review_comments_entry ON review_comments(entry_id, id);
 """
 
 

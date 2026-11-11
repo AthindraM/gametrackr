@@ -32,10 +32,10 @@ OWN_VERBS = {
 }
 
 _EVENTS = """
-    SELECT 'rating' AS kind, user_id, game_id, rating, review, updated_at AS at, NULL AS shelf
+    SELECT 'rating' AS kind, id AS entry_id, user_id, game_id, rating, review, updated_at AS at, NULL AS shelf
       FROM entries WHERE {cond}
     UNION ALL
-    SELECT 'shelf', user_id, game_id, NULL, NULL, added_at, shelf
+    SELECT 'shelf', NULL, user_id, game_id, NULL, NULL, added_at, shelf
       FROM shelf_items WHERE {cond}"""
 
 
@@ -88,6 +88,14 @@ def count(db, cond, params):
                  + (SELECT COUNT(*) FROM shelf_items WHERE {cond})""",
         [*params, *params],
     ).fetchone()[0]
+
+
+def when(stamp, tz, now=None):
+    """A stored timestamp as the reader sees it: "Today at 3:42 PM", "November 8, 2026 at 9:05 AM"."""
+    today = (now or datetime.now(UTC)).astimezone(tz).date()
+    local = datetime.strptime(stamp, "%Y-%m-%d %H:%M:%S").replace(tzinfo=UTC)
+    local = local.astimezone(tz)
+    return f"{day_label(local.date(), today)} at {clock(local)}"
 
 
 def decorate(rows, tz, now=None):

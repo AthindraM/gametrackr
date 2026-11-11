@@ -40,6 +40,7 @@ from . import (
     home,
     misc,
     profiles,
+    reviews,
     settings,
     steam,
 )  # noqa: E402,F401

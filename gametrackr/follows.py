@@ -4,7 +4,7 @@ from flask import flash, g, redirect, render_template, request, url_for
 
 from . import app
 from .db import get_db
-from .helpers import find_person, login_required
+from .helpers import find_person, login_required, safe_next
 
 PAGE_SIZE = 50
 
@@ -40,14 +40,6 @@ def following_among(db, follower_id, user_ids):
         [follower_id, *user_ids],
     ).fetchall()
     return {r[0] for r in rows}
-
-
-def safe_next(default):
-    """Where to go after a button press: the page it came from, if it's on this site."""
-    target = request.form.get("next", "")
-    if target.startswith("/") and not target.startswith("//") and "\\" not in target:
-        return target
-    return default
 
 
 @app.route("/u/<username>/follow", methods=["POST"])

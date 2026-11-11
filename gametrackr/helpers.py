@@ -108,3 +108,11 @@ def find_person(db, username):
     if person is None:
         abort(404)
     return person
+
+
+def safe_next(default):
+    """Where to go after a button press: the page it came from, if it's on this site."""
+    target = request.form.get("next", "")
+    if target.startswith("/") and not target.startswith("//") and "\\" not in target:
+        return target
+    return default

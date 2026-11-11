@@ -9,6 +9,7 @@ from .follows import following_among
 from .helpers import login_required
 from .igdb import IgdbError, cover_url, igdb_configured, igdb_get
 from .ranking import SORTS, sort_results
+from .reviews import REVIEW_STATS
 from .shelves import SHELVES, get_shelf, put_on_shelf
 from .text import norm_title
 from .users import find_users
@@ -209,15 +210,16 @@ def game(game_id):
     if row is None:
         abort(404)
     entries = db.execute(
-        """SELECT e.*, u.username, u.avatar_v FROM entries e
-           JOIN users u ON u.id = e.user_id
-           WHERE e.game_id = ? ORDER BY e.updated_at DESC, e.id DESC""",
-        (game_id,),
+        f"""SELECT e.*, u.username, u.avatar_v, {REVIEW_STATS}
+            FROM entries e
+            JOIN users u ON u.id = e.user_id
+            WHERE e.game_id = ? ORDER BY e.updated_at DESC, e.id DESC""",
+        (g.user["id"] if g.user else -1, game_id),
     ).fetchall()
     mine = None
     if g.user:
         mine = db.execute(
-            "SELECT id FROM entries WHERE user_id = ? AND game_id = ?",
+            "SELECT id, review FROM entries WHERE user_id = ? AND game_id = ?",
             (g.user["id"], game_id),
         ).fetchone()
     my_shelf = get_shelf(db, g.user["id"], game_id) if g.user else ""

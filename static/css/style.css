@@ -816,3 +816,96 @@ h2.day {
     grid-template-columns: 1fr;
   }
 }
+
+/* Likes, dislikes, and comments on reviews */
+.reactions {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  flex-wrap: wrap;
+  margin-top: 8px;
+}
+.reactions form {
+  display: flex;
+  gap: 8px;
+  margin: 0;
+}
+.react-btn {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  padding: 3px 12px;
+  border: 1px solid var(--line);
+  border-radius: 999px;
+  background: transparent;
+  color: var(--muted);
+  font: inherit;
+  font-size: 0.8rem;
+  font-weight: 400;
+  text-decoration: none;
+  cursor: pointer;
+}
+.react-btn:hover {
+  background: var(--surface);
+  color: var(--text);
+}
+.react-btn.on {
+  background: var(--surface);
+  border-color: var(--accent);
+  color: var(--text);
+}
+.react-btn.dislike.on {
+  border-color: #f0623b;
+}
+.react-btn.static {
+  cursor: default;
+}
+.react-btn.static:hover {
+  background: transparent;
+  color: var(--muted);
+}
+.react-link {
+  font-size: 0.8rem;
+  color: var(--muted);
+}
+
+/* A single review and its comments */
+.review-page {
+  max-width: 720px;
+}
+.review-head {
+  display: flex;
+  align-items: center;
+  gap: 14px;
+  margin: 8px 0 12px;
+}
+.review-head .who {
+  flex: 1;
+}
+.review-body {
+  margin: 0 0 4px;
+}
+.comment-form {
+  display: grid;
+  gap: 10px;
+  margin-bottom: 12px;
+}
+.comment-form textarea {
+  min-height: 90px;
+}
+.comment {
+  display: flex;
+  gap: 12px;
+  align-items: flex-start;
+  padding: 14px 0;
+  border-bottom: 1px solid var(--line);
+}
+.comment .main {
+  flex: 1;
+  min-width: 0;
+}
+.comment .body {
+  margin: 4px 0 0;
+  white-space: pre-wrap;
+  overflow-wrap: anywhere;
+}

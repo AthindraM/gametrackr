@@ -12,6 +12,7 @@
       <span class="sub">{{ e.time }}</span>
       {% if e.review %}
         <p class="review muted">{{ e.review[:240] }}{% if e.review|length > 240 %}&hellip;{% endif %}</p>
+        <a class="react-link" href="{{ url_for('review_page', entry_id=e.entry_id) }}">Likes &amp; comments</a>
       {% endif %}
     </div>
     {% if e.kind == "rating" %}
