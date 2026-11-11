@@ -20,7 +20,7 @@
 
         <form class="navsearch" action="{{ url_for('search') }}" method="get" role="search">
           <span class="ac">
-            <input type="search" name="q" placeholder="Search games" aria-label="Search games"
+            <input type="search" name="q" placeholder="Search games or users" aria-label="Search games or users"
                    value="{{ request.args.get('q', '') if request.endpoint == 'search' else '' }}"
                    data-suggest="go" autocomplete="off" required>
           </span>

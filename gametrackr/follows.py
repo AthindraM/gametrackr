@@ -30,6 +30,18 @@ def is_following(db, follower_id, followee_id):
     )
 
 
+def following_among(db, follower_id, user_ids):
+    """Which of these users does follower_id follow? (one query, for lists of people)"""
+    if not user_ids:
+        return set()
+    marks = ",".join("?" * len(user_ids))
+    rows = db.execute(
+        f"SELECT followee_id FROM follows WHERE follower_id = ? AND followee_id IN ({marks})",
+        [follower_id, *user_ids],
+    ).fetchall()
+    return {r[0] for r in rows}
+
+
 def safe_next(default):
     """Where to go after a button press: the page it came from, if it's on this site."""
     target = request.form.get("next", "")
@@ -92,14 +104,11 @@ def people_page(username, kind):
             LIMIT ? OFFSET ?""",
         (person["id"], PAGE_SIZE, (page - 1) * PAGE_SIZE),
     ).fetchall()
-    following_ids = set()
-    if g.user and people:
-        marks = ",".join("?" * len(people))
-        rows = db.execute(
-            f"SELECT followee_id FROM follows WHERE follower_id = ? AND followee_id IN ({marks})",
-            [g.user["id"]] + [p["id"] for p in people],
-        ).fetchall()
-        following_ids = {r[0] for r in rows}
+    following_ids = (
+        following_among(db, g.user["id"], [p["id"] for p in people])
+        if g.user
+        else set()
+    )
     query = request.query_string.decode()
     return render_template(
         "people.html",

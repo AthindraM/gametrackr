@@ -752,27 +752,27 @@ select:focus {
 }
 
 /* Home tabs (Home / Following) and the Following feed */
-.hometabs {
+.pagetabs {
   display: flex;
   gap: 4px;
   margin: 0 0 8px;
   border-bottom: 1px solid var(--line);
 }
-.hometabs a {
+.pagetabs a {
   margin-bottom: -1px;
   padding: 10px 16px;
   border-bottom: 2px solid transparent;
   color: var(--muted);
   text-decoration: none;
 }
-.hometabs a:hover {
+.pagetabs a:hover {
   color: var(--text);
 }
-.hometabs a.active {
+.pagetabs a.active {
   border-bottom-color: var(--accent);
   color: var(--text);
 }
-.hometabs + .shelf .shelf-head {
+.pagetabs + .shelf .shelf-head {
   margin-top: 20px;
 }
 h2.day {
@@ -780,7 +780,7 @@ h2.day {
   font-size: 0.95rem;
   color: var(--text);
 }
-.hometabs + h2.day {
+.pagetabs + h2.day {
   margin-top: 20px;
 }
 

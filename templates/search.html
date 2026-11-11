@@ -1,10 +1,37 @@
 {% extends "base.html" %}
+{% from "follow.html" import follow_button with context %}
 {% block title %}{{ q or "Search" }} - Gametrackr{% endblock %}
 
 {% block body %}
-  <h1>{% if q %}Results for &ldquo;{{ q }}&rdquo;{% else %}Search games{% endif %}</h1>
+  <h1>{% if q %}Results for &ldquo;{{ q }}&rdquo;{% else %}Search{% endif %}</h1>
 
-  {% if results %}
+  {% if q %}
+    <nav class="pagetabs" aria-label="Search type">
+      <a href="{{ url_for('search', q=q, type='games') }}" class="{{ 'active' if tab == 'games' }}"{% if tab == 'games' %} aria-current="page"{% endif %}>Games</a>
+      <a href="{{ url_for('search', q=q, type='users') }}" class="{{ 'active' if tab == 'users' }}"{% if tab == 'users' %} aria-current="page"{% endif %}>Users</a>
+    </nav>
+  {% endif %}
+
+  {% if tab == "users" %}
+    {% for u in users %}
+      <div class="row">
+        {{ avatar(u, 44) }}
+        <div class="main">
+          <a href="{{ url_for('profile', username=u.username) }}">{{ u.username }}</a>
+          <span class="sub">
+            {{ u.rated }} game{{ "" if u.rated == 1 else "s" }} rated &middot;
+            {{ u.followers }} follower{{ "" if u.followers == 1 else "s" }}
+          </span>
+        </div>
+        {% if user and user.id != u.id %}
+          {{ follow_button(u.username, u.id in following_ids, next_url, small=True) }}
+        {% endif %}
+      </div>
+    {% else %}
+      <p class="muted">{{ "No users match that search." if q else "Type a game title or a username in the search box." }}</p>
+    {% endfor %}
+
+  {% elif results %}
     <div class="sortbar">
       <span class="muted">Sort by</span>
       {% for key, label in sorts.items() %}
@@ -34,6 +61,6 @@
     <p class="muted">No games match that search.</p>
     <p><a class="btn" href="{{ url_for('add', title=q) }}">Add &ldquo;{{ q }}&rdquo;</a></p>
   {% else %}
-    <p class="muted">Type a game title in the search box.</p>
+    <p class="muted">Type a game title or a username in the search box.</p>
   {% endif %}
 {% endblock %}

@@ -5,11 +5,13 @@ from flask import abort, flash, g, jsonify, redirect, render_template, request, 
 from . import app
 from .catalog import enrich_game, ensure_game_from_igdb, search_results
 from .db import get_db
+from .follows import following_among
 from .helpers import login_required
 from .igdb import IgdbError, cover_url, igdb_configured, igdb_get
 from .ranking import SORTS, sort_results
 from .shelves import SHELVES, get_shelf, put_on_shelf
 from .text import norm_title
+from .users import find_users
 
 
 @app.route("/api/games/suggest")
@@ -36,12 +38,31 @@ def suggest_games():
 @app.route("/search")
 def search():
     q = " ".join(request.args.get("q", "").split())[:100]
+    if request.args.get("type") == "users":
+        db = get_db()
+        users = find_users(db, q) if q else []
+        following_ids = (
+            following_among(db, g.user["id"], [u["id"] for u in users])
+            if g.user
+            else set()
+        )
+        query = request.query_string.decode()
+        return render_template(
+            "search.html",
+            q=q,
+            tab="users",
+            users=users,
+            following_ids=following_ids,
+            next_url=request.path + (f"?{query}" if query else ""),
+        )
     sort = request.args.get("sort", "relevance")
     if sort not in SORTS:
         sort = "relevance"
     # Keep the 40 best matches, then order them; sorting by date never pulls in poor matches.
     results = sort_results(search_results(q, 50, 30)[:40], sort) if q else []
-    return render_template("search.html", q=q, results=results, sort=sort, sorts=SORTS)
+    return render_template(
+        "search.html", q=q, tab="games", results=results, sort=sort, sorts=SORTS
+    )
 
 
 @app.route("/game/igdb/<int:igdb_id>")
