@@ -25,7 +25,11 @@
               liked your review of
               <a href="{{ url_for('review_page', entry_id=n.entry_id) }}">{{ n.title }}</a>
             {% elif n.kind == "comment" %}
-              commented on your review of
+              {# To the review's owner: "on your review". To others in the thread: "also commented on X's review". #}
+              {% if n.owner_id == user.id %}commented on your review of
+              {% elif n.username == n.owner %}commented on their review of
+              {% else %}also commented on {{ n.owner }}'s review of
+              {% endif %}
               <a href="{{ url_for('review_page', entry_id=n.entry_id, page=n.page, _anchor='comment-' ~ n.comment_id) }}">{{ n.title }}</a>
             {% else %}
               started following you
@@ -41,7 +45,7 @@
         </div>
       {% endfor %}
     {% else %}
-      <p class="muted">No notifications yet. You'll see likes and comments on your reviews, and new followers, here.</p>
+      <p class="muted">No notifications yet. You'll see likes and comments on your reviews, replies in threads you joined, and new followers here.</p>
     {% endfor %}
 
     {% if pages > 1 %}

@@ -125,10 +125,7 @@ def add_comment(entry_id):
         "INSERT INTO review_comments (entry_id, user_id, body) VALUES (?, ?, ?)",
         (entry_id, g.user["id"], body),
     )
-    if (
-        review["user_id"] != g.user["id"]
-    ):  # commenting on your own review notifies no one
-        notify_comment(db, review["user_id"], g.user["id"], entry_id, cur.lastrowid)
+    notify_comment(db, review["user_id"], g.user["id"], entry_id, cur.lastrowid)
     db.commit()
     total = db.execute(
         "SELECT COUNT(*) FROM review_comments WHERE entry_id = ?", (entry_id,)

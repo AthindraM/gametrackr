@@ -1,4 +1,4 @@
-"""Settings pages: Profile (picture) and Connections (Steam)."""
+"""Settings pages: Profile (picture), Notifications (switches), Connections (Steam)."""
 
 import os
 
@@ -7,8 +7,13 @@ from flask import abort, g, redirect, render_template, url_for
 from . import app
 from .db import get_db
 from .helpers import login_required
+from .notify import PREFERENCES, get_prefs
 
-SETTINGS_SECTIONS = [("profile", "Profile"), ("connections", "Connections")]
+SETTINGS_SECTIONS = [
+    ("profile", "Profile"),
+    ("notifications", "Notifications"),
+    ("connections", "Connections"),
+]
 
 
 @app.route("/settings")
@@ -32,5 +37,7 @@ def settings(section):
         section=section,
         sections=SETTINGS_SECTIONS,
         count=count,
+        prefs=get_prefs(get_db(), g.user["id"]),
+        notification_kinds=PREFERENCES,
         configured=bool(os.environ.get("STEAM_API_KEY")),
     )

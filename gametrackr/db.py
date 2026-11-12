@@ -91,6 +91,12 @@ CREATE UNIQUE INDEX IF NOT EXISTS idx_notifications_like
     ON notifications(actor_id, entry_id) WHERE kind = 'like';
 CREATE UNIQUE INDEX IF NOT EXISTS idx_notifications_follow
     ON notifications(user_id, actor_id) WHERE kind = 'follow';
+CREATE TABLE IF NOT EXISTS notification_prefs (
+    user_id INTEGER NOT NULL REFERENCES users(id) ON DELETE CASCADE,
+    pref TEXT NOT NULL,
+    enabled INTEGER NOT NULL CHECK (enabled IN (0, 1)),
+    PRIMARY KEY (user_id, pref)
+);
 """
 
 

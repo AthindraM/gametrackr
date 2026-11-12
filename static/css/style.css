@@ -931,3 +931,19 @@ h2.day {
   border-left: 3px solid var(--accent);
   background: rgba(93, 142, 201, 0.08);
 }
+
+/* Settings > Notifications */
+.notif-prefs {
+  display: grid;
+  gap: 14px;
+  max-width: 420px;
+}
+.check {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  color: var(--text);
+}
+.check input {
+  width: auto;
+}

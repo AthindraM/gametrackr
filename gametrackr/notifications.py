@@ -2,14 +2,14 @@
 
 from datetime import datetime
 
-from flask import g, redirect, render_template, request, url_for
+from flask import flash, g, redirect, render_template, request, url_for
 
 from . import app
 from .activity import UTC, browser_timezone, clock, day_label, group_by_day
 from .db import get_db
 from .follows import following_among
 from .helpers import login_required
-from .notify import VISIBLE, unread_count
+from .notify import PREFERENCES, VISIBLE, save_prefs, unread_count
 from .reviews import COMMENTS_PER_PAGE
 
 PAGE_SIZE = 30
@@ -37,10 +37,12 @@ def notifications_page():
     page = min(max(1, request.args.get("page", 1, type=int)), pages)
     rows = db.execute(
         f"""SELECT n.id, n.kind, n.created_at, n.read_at, n.actor_id, n.entry_id, n.comment_id,
-                   a.username, a.avatar_v, e.game_id, g.title, c.body
+                   a.username, a.avatar_v, e.game_id, e.user_id AS owner_id,
+                   ou.username AS owner, g.title, c.body
             FROM notifications n
             JOIN users a ON a.id = n.actor_id
             LEFT JOIN entries e ON e.id = n.entry_id
+            LEFT JOIN users ou ON ou.id = e.user_id
             LEFT JOIN games g ON g.id = e.game_id
             LEFT JOIN review_comments c ON c.id = n.comment_id
             WHERE n.user_id = ? AND {VISIBLE}
@@ -108,3 +110,14 @@ def mark_notifications_read():
     )
     db.commit()
     return redirect(url_for("notifications_page"))
+
+
+@app.route("/settings/notifications", methods=["POST"])
+@login_required
+def save_notification_prefs():
+    db = get_db()
+    # An unticked box is simply missing from the form, so each switch is "present or not".
+    save_prefs(db, g.user["id"], {key: key in request.form for key, _ in PREFERENCES})
+    db.commit()
+    flash("Notification settings saved.")
+    return redirect(url_for("settings", section="notifications"))

@@ -30,6 +30,19 @@
             <p class="hint">PNG, JPEG, WebP, or GIF up to 5 MB. It's cropped to a square.</p>
           </div>
         </div>
+      {% elif section == "notifications" %}
+        <h2 class="first">Notifications</h2>
+        <p class="muted">Choose what you're notified about. Dislikes and unfollows never notify.</p>
+        <form class="notif-prefs" method="post" action="{{ url_for('save_notification_prefs') }}">
+          <input type="hidden" name="csrf" value="{{ csrf_token }}">
+          {% for key, label in notification_kinds %}
+            <label class="check">
+              <input type="checkbox" name="{{ key }}" {{ "checked" if prefs[key] }}>
+              {{ label }}
+            </label>
+          {% endfor %}
+          <div><button>Save</button></div>
+        </form>
       {% elif section == "connections" %}
         <h2 class="first">Steam</h2>
 
