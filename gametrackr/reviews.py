@@ -6,6 +6,7 @@ from . import app
 from .activity import browser_timezone, when
 from .db import get_db
 from .helpers import login_required, safe_next
+from .notify import clear_like, notify_comment, notify_like
 
 COMMENTS_PER_PAGE = 50
 MAX_COMMENT_LENGTH = 1000
@@ -81,6 +82,8 @@ def react_to_review(entry_id):
             "DELETE FROM review_reactions WHERE entry_id = ? AND user_id = ?",
             (entry_id, g.user["id"]),
         )
+        if value == 1:  # the like was taken back
+            clear_like(db, g.user["id"], entry_id)
     else:
         db.execute(
             """INSERT INTO review_reactions (entry_id, user_id, value) VALUES (?, ?, ?)
@@ -88,6 +91,10 @@ def react_to_review(entry_id):
                  value = excluded.value, created_at = CURRENT_TIMESTAMP""",
             (entry_id, g.user["id"], value),
         )
+        if value == 1:
+            notify_like(db, review["user_id"], g.user["id"], entry_id)
+        else:  # a dislike never notifies, and replaces any like that was there
+            clear_like(db, g.user["id"], entry_id)
     db.commit()
     return redirect(back)
 
@@ -96,7 +103,7 @@ def react_to_review(entry_id):
 @login_required
 def add_comment(entry_id):
     db = get_db()
-    get_review(db, entry_id)  # 404 unless this is a review
+    review = get_review(db, entry_id)  # 404 unless this is a review
     body = request.form.get("body", "").replace("\r\n", "\n").strip()
     problem = None
     if not body:
@@ -118,6 +125,10 @@ def add_comment(entry_id):
         "INSERT INTO review_comments (entry_id, user_id, body) VALUES (?, ?, ?)",
         (entry_id, g.user["id"], body),
     )
+    if (
+        review["user_id"] != g.user["id"]
+    ):  # commenting on your own review notifies no one
+        notify_comment(db, review["user_id"], g.user["id"], entry_id, cur.lastrowid)
     db.commit()
     total = db.execute(
         "SELECT COUNT(*) FROM review_comments WHERE entry_id = ?", (entry_id,)

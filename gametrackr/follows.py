@@ -5,6 +5,7 @@ from flask import flash, g, redirect, render_template, request, url_for
 from . import app
 from .db import get_db
 from .helpers import find_person, login_required, safe_next
+from .notify import clear_follow, notify_follow
 
 PAGE_SIZE = 50
 
@@ -55,6 +56,7 @@ def follow_user(username):
         "INSERT OR IGNORE INTO follows (follower_id, followee_id) VALUES (?, ?)",
         (g.user["id"], person["id"]),
     )
+    notify_follow(db, person["id"], g.user["id"])
     db.commit()
     flash(f"You're now following {person['username']}.")
     return redirect(safe_next(fallback))
@@ -69,6 +71,7 @@ def unfollow_user(username):
         "DELETE FROM follows WHERE follower_id = ? AND followee_id = ?",
         (g.user["id"], person["id"]),
     )
+    clear_follow(db, person["id"], g.user["id"])  # unfollowing notifies no one
     db.commit()
     flash(f"You unfollowed {person['username']}.")
     return redirect(safe_next(url_for("profile", username=person["username"])))

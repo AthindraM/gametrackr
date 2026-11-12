@@ -8,6 +8,7 @@ from flask import abort, flash, g, redirect, request, session, url_for
 from . import app
 from .db import get_db
 from .igdb import cover_img
+from .notify import unread_count
 
 
 @app.before_request
@@ -38,6 +39,9 @@ def inject_globals():
     return {
         "csrf_token": session["csrf"],
         "user": g.get("user"),
+        "unread_notifications": (
+            unread_count(get_db(), g.user["id"]) if g.get("user") else 0
+        ),
         "cover_img": cover_img,
     }
 

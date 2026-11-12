@@ -39,6 +39,7 @@ from . import (
     helpers,
     home,
     misc,
+    notifications,
     profiles,
     reviews,
     settings,

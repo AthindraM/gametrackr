@@ -76,6 +76,21 @@ CREATE TABLE IF NOT EXISTS review_comments (
     created_at TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP
 );
 CREATE INDEX IF NOT EXISTS idx_review_comments_entry ON review_comments(entry_id, id);
+CREATE TABLE IF NOT EXISTS notifications (
+    id INTEGER PRIMARY KEY AUTOINCREMENT,
+    user_id INTEGER NOT NULL REFERENCES users(id) ON DELETE CASCADE,
+    actor_id INTEGER NOT NULL REFERENCES users(id) ON DELETE CASCADE,
+    kind TEXT NOT NULL CHECK (kind IN ('like', 'comment', 'follow')),
+    entry_id INTEGER REFERENCES entries(id) ON DELETE CASCADE,
+    comment_id INTEGER REFERENCES review_comments(id) ON DELETE CASCADE,
+    created_at TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP,
+    read_at TEXT
+);
+CREATE INDEX IF NOT EXISTS idx_notifications_user ON notifications(user_id, id);
+CREATE UNIQUE INDEX IF NOT EXISTS idx_notifications_like
+    ON notifications(actor_id, entry_id) WHERE kind = 'like';
+CREATE UNIQUE INDEX IF NOT EXISTS idx_notifications_follow
+    ON notifications(user_id, actor_id) WHERE kind = 'follow';
 """
 
 

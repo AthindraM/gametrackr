@@ -28,6 +28,7 @@
 
         {% if user %}
           <a href="{{ url_for('add') }}">Add game</a>
+          <a href="{{ url_for('notifications_page') }}">Notifications{% if unread_notifications %} <span class="count">{{ unread_notifications if unread_notifications < 100 else "99+" }}</span>{% endif %}</a>
           <details class="menu">
             <summary>{{ avatar(user, 26) }}<span>{{ user.username }}</span></summary>
             <div class="pop">
