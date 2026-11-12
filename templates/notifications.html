@@ -1,0 +1,55 @@
+{% extends "base.html" %}
+{% from "follow.html" import follow_button with context %}
+{% block title %}Notifications - Gametrackr{% endblock %}
+
+{% block body %}
+  <div class="notif-page">
+    <div class="shelf-head">
+      <h1>Notifications</h1>
+      {% if more_unread %}
+        <form class="inline" method="post" action="{{ url_for('mark_notifications_read') }}">
+          <input type="hidden" name="csrf" value="{{ csrf_token }}">
+          <button class="link">Mark all as read</button>
+        </form>
+      {% endif %}
+    </div>
+
+    {% for section in sections %}
+      <h2 class="day">{{ section.label }}</h2>
+      {% for n in section.events %}
+        <div class="row notif{{ ' unread' if n.read_at is none }}">
+          {{ avatar(n, 40) }}
+          <div class="main">
+            <a href="{{ url_for('profile', username=n.username) }}">{{ n.username }}</a>
+            {% if n.kind == "like" %}
+              liked your review of
+              <a href="{{ url_for('review_page', entry_id=n.entry_id) }}">{{ n.title }}</a>
+            {% elif n.kind == "comment" %}
+              commented on your review of
+              <a href="{{ url_for('review_page', entry_id=n.entry_id, page=n.page, _anchor='comment-' ~ n.comment_id) }}">{{ n.title }}</a>
+            {% else %}
+              started following you
+            {% endif %}
+            <span class="sub">{{ n.time }}</span>
+            {% if n.kind == "comment" and n.body %}
+              <p class="review muted">&ldquo;{{ n.body[:140] }}{% if n.body|length > 140 %}&hellip;{% endif %}&rdquo;</p>
+            {% endif %}
+          </div>
+          {% if n.kind == "follow" %}
+            {{ follow_button(n.username, n.actor_id in following_ids, next_url, small=True) }}
+          {% endif %}
+        </div>
+      {% endfor %}
+    {% else %}
+      <p class="muted">No notifications yet. You'll see likes and comments on your reviews, and new followers, here.</p>
+    {% endfor %}
+
+    {% if pages > 1 %}
+      <div class="pager">
+        {% if page > 1 %}<a href="{{ url_for('notifications_page', page=page - 1) }}">&larr; Newer</a>{% endif %}
+        <span class="muted">Page {{ page }} of {{ pages }}</span>
+        {% if page < pages %}<a href="{{ url_for('notifications_page', page=page + 1) }}">Older &rarr;</a>{% endif %}
+      </div>
+    {% endif %}
+  </div>
+{% endblock %}
